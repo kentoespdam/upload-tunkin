@@ -1,11 +1,10 @@
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from app import TunkinRepository
+from app.routers import tunkin, auth
 
 app = FastAPI(
     title="Upload Tunkin API",
-    root_path="/v1"
 )
 
 app.add_middleware(
@@ -19,8 +18,5 @@ def index():
     return {"Hello": "World"}
 
 
-@app.post("/tunkin")
-async def upload_file(file: UploadFile):
-    repository = TunkinRepository()
-    result = repository.read_excel(file)
-    return result
+app.include_router(auth.router)
+app.include_router(tunkin.router)
