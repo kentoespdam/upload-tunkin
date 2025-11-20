@@ -2,6 +2,7 @@ from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.params import Query
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt import ExpiredSignatureError, InvalidTokenError, DecodeError
 from starlette import status
@@ -150,16 +151,16 @@ async def read_users_me(
     return current_user
 
 
-@router.post(
+@router.options(
     "/validate",
     summary="Validate user credentials",
 )
 async def validate_token(
-        token: str,
+        req: Annotated[RefreshTokenRequest, Query()],
         token_helper: Annotated[TokenHelper, Depends(get_token_helper)],
 ):
     try:
-        payload = token_helper.decode_token(token)
+        payload = token_helper.decode_token(req.token)
 
         return {
             "valid": True,
