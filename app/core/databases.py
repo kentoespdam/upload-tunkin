@@ -5,7 +5,7 @@ import pymysqlpool
 from pymysql.cursors import DictCursor
 
 from app.core.config import LOGGER
-from app.models.response_model import PageResponse
+from app.models.response_model import BasePageResponse
 
 
 def get_connection_pool() -> pymysqlpool.Connection:
@@ -77,7 +77,7 @@ class DatabaseHelper:
                     conn.rollback()
                     LOGGER.error(e)
 
-    def fetch_page(self, query: str, params: tuple = (), page: int = 1, page_size: int = 10)->PageResponse:
+    def fetch_page(self, query: str, params: tuple = (), page: int = 1, page_size: int = 10)->BasePageResponse:
         count = self.fetch_count(query, params)
 
         offset = (page - 1) * page_size
@@ -85,8 +85,8 @@ class DatabaseHelper:
         paginated_params = params + (page_size, offset)
         rows = self.fetch_data(query, paginated_params)
 
-        return PageResponse(
-            data=rows.to_dict("records"),
+        return BasePageResponse(
+            content=rows.to_dict("records"),
             total=count,
             page=page,
             page_size=page_size,

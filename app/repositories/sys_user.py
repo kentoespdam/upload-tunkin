@@ -90,16 +90,15 @@ class TokenHelper:
         self.repository = SysUserRepository()
         self.timezone = pytz.timezone('Asia/Jakarta')
 
-    def validata_client(self, client_id: str, client_secret: str) -> Optional[bool]:
+    def validata_client(self, client_id: str, client_secret: str) -> bool:
         try:
-            if (self.config.jwt_client_id == client_id and
-                    self.config.jwt_client_secret == client_secret):
+            is_match_client_id = self.config.jwt_client_id == client_id
+            is_match_client_secret = self.config.jwt_client_secret == client_secret
+            if is_match_client_id and is_match_client_secret:
                 return True
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-
-            )
+            LOGGER.error(f"Client validation error: {e}")
+            return False
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None):
         try:
@@ -227,7 +226,7 @@ def require_role(required_role: list[str]):
         sqids_helper = SqidsHelper()
         user_role = current_user.get('role')
         user_role = sqids_helper.decode(user_role)
-        menus= menu_repository.fetch_menus(user_role)
+        menus = menu_repository.fetch_menus(user_role)
 
         if menus[menus['menu_code'].isin(required_role)].empty:
             raise HTTPException(
