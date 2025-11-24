@@ -10,9 +10,8 @@ from starlette import status
 
 from app.core.config import Config, SqidsHelper, LOGGER
 from app.core.databases import DatabaseHelper
-from app.models.request_model import TokenPayload
 from app.repositories.sys_menu import SysMenuRepository, get_sys_menu_repository
-
+from app.models.response_model import User, TokenPayload
 
 class SysUserRepository:
     def __init__(self):
@@ -173,7 +172,7 @@ class TokenHelper:
 
             if user is None or user.get('disabled', True):
                 raise credentials_exception
-            return user
+            return User(**user)
         except ExpiredSignatureError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -215,16 +214,16 @@ class TokenHelper:
 
 def require_role(required_role: list[str]):
     def role_checker(
-            current_user: Annotated[Dict[str, Any], Depends(TokenHelper().get_current_user)],
+            current_user: Annotated[User, Depends(TokenHelper().get_current_user)],
             menu_repository: Annotated[SysMenuRepository, Depends(get_sys_menu_repository)]
     ):
-        if current_user["disabled"]:
+        if current_user.disabled:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Inactive user"
             )
         sqids_helper = SqidsHelper()
-        user_role = current_user.get('role')
+        user_role = current_user.role
         user_role = sqids_helper.decode(user_role)
         menus = menu_repository.fetch_menus(user_role)
 

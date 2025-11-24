@@ -6,7 +6,8 @@ from fastapi import UploadFile, HTTPException, Depends
 
 from app.core.config import Config
 from app.core.databases import DatabaseHelper
-from app.models.request_model import TunkinRequest, User
+from app.models.request_model import TunkinRequest
+from app.models.response_model import User
 from app.repositories.sys_user import TokenHelper
 
 TEMPLATE_COLUMN = [

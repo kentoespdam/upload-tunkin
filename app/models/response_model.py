@@ -7,6 +7,44 @@ from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
 
+"""
+JWT Model
+"""
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+
+class BaseToken(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+
+
+class Token(BaseToken):
+    refresh_token: str
+
+
+class TokenPayload(BaseModel):
+    username: Optional[str] = None
+
+
+class User(BaseModel):
+    username: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    disabled: Optional[bool] = None
+
+
+class UserInDb(User):
+    hashed_password: str
+
+class RefreshTokenRequest(BaseModel):
+    token: str
+
+
+""" Common Response Model """
 class BaseResponse(BaseModel):
     status: int
     data: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None

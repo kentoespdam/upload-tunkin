@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from jwt import ExpiredSignatureError, InvalidTokenError, DecodeError
 
 from app.core.config import Config, LOGGER
-from app.models.request_model import User, Token, BaseToken, RefreshTokenRequest
+from app.models.response_model import User, Token, BaseToken, RefreshTokenRequest
 from app.models.response_model import get_response_builder, ResponseBuilder
 from app.repositories.sys_user import SysUserRepository, TokenHelper, require_role
 

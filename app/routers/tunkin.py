@@ -5,8 +5,8 @@ from starlette import status
 
 from app import TunkinRepository
 from app.core.config import LOGGER
-from app.models.request_model import TunkinRequest, User
-from app.models.response_model import ResponseBuilder, get_response_builder
+from app.models.request_model import TunkinRequest
+from app.models.response_model import User, ResponseBuilder, get_response_builder
 from app.repositories.sys_user import require_role
 
 router = APIRouter(
