@@ -49,17 +49,17 @@ def authenticate_user(
         return response_builder.bad_request("inactive_user")
 
     try:
-        access_token = token_helper.create_access_token(
+        _access_token = token_helper.create_access_token(
             user,
             timedelta(minutes=config.jwt_access_token_expire_minutes)
         )
-        refresh_token = token_helper.create_refresh_token(
+        _refresh_token = token_helper.create_refresh_token(
             user,
             timedelta(days=7)
         )
         token = Token(
-            access_token=access_token,
-            refresh_token=refresh_token,
+            access_token=_access_token,
+            refresh_token=_refresh_token,
             token_type="bearer",
             expires_in=token_helper.config.jwt_access_token_expire_minutes * 60
         )

@@ -98,6 +98,7 @@ class TokenHelper:
         except Exception as e:
             LOGGER.error(f"Client validation error: {e}")
             return False
+        return False
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None):
         try:
@@ -152,7 +153,7 @@ class TokenHelper:
                 detail="Could not create refresh token"
             )
 
-    async def get_current_user(self, token: Annotated[str, Depends(oauth2_scheme)]) -> Dict[str, Any]:
+    async def get_current_user(self, token: Annotated[str, Depends(oauth2_scheme)]) -> User:
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
