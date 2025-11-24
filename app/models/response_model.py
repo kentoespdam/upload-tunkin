@@ -3,13 +3,15 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Optional, Union, List, Dict, Any, Hashable
 
+from fastapi import HTTPException
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
-
 
 """
 JWT Model
 """
+
+
 class AuthRequest(BaseModel):
     username: str
     password: str
@@ -40,11 +42,14 @@ class User(BaseModel):
 class UserInDb(User):
     hashed_password: str
 
+
 class RefreshTokenRequest(BaseModel):
     token: str
 
 
 """ Common Response Model """
+
+
 class BaseResponse(BaseModel):
     status: int
     data: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None
@@ -361,6 +366,30 @@ class ResponseBuilder:
             errors="Validation error",
             message=message,
         )
+
+    def from_exception(self, exc: Exception) -> JSONResponse:
+        """Build response from exception"""
+        return ResponseBuilder.internal_server_error(
+            errors=str(exc),
+            message="An error occurred"
+        )
+
+    def from_http_exception(self, ex: HTTPException) -> JSONResponse:
+        """Build response from HTTPException"""
+        if ex.status_code == 400:
+            return self.bad_request(errors=ex.detail, headers=ex.headers)
+        elif ex.status_code == 401:
+            return self.unauthorized(errors=ex.detail, headers=ex.headers)
+        elif ex.status_code == 403:
+            return self.forbidden(errors=ex.detail, headers=ex.headers)
+        elif ex.status_code == 404:
+            return self.not_found(errors=ex.detail, headers=ex.headers)
+        elif ex.status_code == 409:
+            return self.conflict(errors=ex.detail, headers=ex.headers)
+        elif ex.status_code == 422:
+            return self.unprocessable_entity(errors=ex.detail, headers=ex.headers)
+        else:
+            return self.internal_server_error(errors=ex.detail, headers=ex.headers)
 
 
 def get_response_builder() -> ResponseBuilder:

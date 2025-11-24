@@ -5,13 +5,17 @@ import jwt
 import pytz
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from jwt import InvalidTokenError, ExpiredSignatureError, DecodeError
+from jwt import InvalidTokenError
 from starlette import status
 
 from app.core.config import Config, SqidsHelper, LOGGER
 from app.core.databases import DatabaseHelper
+from app.models.response_model import User, TokenPayload, ResponseBuilder
 from app.repositories.sys_menu import SysMenuRepository, get_sys_menu_repository
-from app.models.response_model import User, TokenPayload
+
+INCORRECT_USERNAME_OR_PASSWORD = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                               detail="Incorrect username or password")
+
 
 class SysUserRepository:
     def __init__(self):
@@ -20,16 +24,12 @@ class SysUserRepository:
         self.sqids_helper = SqidsHelper()
 
     def authenticate(self, auth_request: OAuth2PasswordRequestForm):
-        try:
-            result = self.get_user(auth_request.username)
-            if not result:
-                return None
-            if not self.validate_password(auth_request.password, result['user_password']):
-                return None
-            return result
-        except Exception as e:
-            LOGGER.error(f"Authentication error: {e}")
-            return None
+        result = self.get_user(auth_request.username)
+        if not result:
+            raise INCORRECT_USERNAME_OR_PASSWORD
+        self.validate_password(auth_request.password, result['user_password'])
+
+        return result
 
     def get_user(self, username: str):
         query = f"""
@@ -63,18 +63,15 @@ class SysUserRepository:
             LOGGER.error(f"Error fetching user: {e}")
             return None
 
-    def validate_password(self, plain_password: str, hashed_password: str) -> bool:
-        try:
-            query = "SELECT PASSWORD(%s) AS user_password"
-            params = (plain_password,)
-            result = self.db_helper.fetch_tuple_data(query, params, fetchone=True)
-            if not result:
-                return False
-            stored_hashed_password = result['user_password']
-            return stored_hashed_password == hashed_password
-        except Exception as e:
-            LOGGER.error(f"Password validation error: {e}")
-            return False
+    def validate_password(self, plain_password: str, hashed_password: str):
+        query = "SELECT PASSWORD(%s) AS user_password"
+        params = (plain_password,)
+        result = self.db_helper.fetch_tuple_data(query, params, fetchone=True)
+        if not result:
+            raise INCORRECT_USERNAME_OR_PASSWORD
+        stored_hashed_password = result['user_password']
+        if stored_hashed_password != hashed_password:
+            raise INCORRECT_USERNAME_OR_PASSWORD
 
 
 """
@@ -88,17 +85,13 @@ class TokenHelper:
         self.config = Config()
         self.repository = SysUserRepository()
         self.timezone = pytz.timezone('Asia/Jakarta')
+        self.response_builder = ResponseBuilder()
 
-    def validata_client(self, client_id: str, client_secret: str) -> bool:
-        try:
-            is_match_client_id = self.config.jwt_client_id == client_id
-            is_match_client_secret = self.config.jwt_client_secret == client_secret
-            if is_match_client_id and is_match_client_secret:
-                return True
-        except Exception as e:
-            LOGGER.error(f"Client validation error: {e}")
-            return False
-        return False
+    def validata_client(self, client_id: str, client_secret: str):
+        is_match_client_id = self.config.jwt_client_id == client_id
+        is_match_client_secret = self.config.jwt_client_secret == client_secret
+        if not is_match_client_id or not is_match_client_secret:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid client credentials")
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None):
         try:
@@ -154,37 +147,30 @@ class TokenHelper:
             )
 
     async def get_current_user(self, token: Annotated[str, Depends(oauth2_scheme)]) -> User:
-        credentials_exception = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
         try:
             payload = self.decode_token(token)
             username = payload.get("sub")
             token_type: str = payload.get("type")
 
             if username is None or token_type != "access_token":
-                raise credentials_exception
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Invalid token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
 
             token_data = TokenPayload(username=username)
             user = self.repository.get_user(token_data.username)
 
             if user is None or user.get('disabled', True):
-                raise credentials_exception
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Inactive user",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             return User(**user)
-        except ExpiredSignatureError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has expired",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        except (InvalidTokenError, DecodeError):
-            raise credentials_exception
-        except Exception as e:
-            LOGGER.error(f"Get current user error: {e}")
-            raise credentials_exception
+        except Exception:
+            raise
 
     def decode_token(self, token: str) -> Dict[str, Any]:
         try:
@@ -194,15 +180,8 @@ class TokenHelper:
                 algorithms=[self.config.jwt_algorithm]
             )
             return payload
-        except ExpiredSignatureError as e:
-            LOGGER.error(f"Token expired: {e}")
+        except Exception:
             raise
-        except (InvalidTokenError, DecodeError) as e:
-            LOGGER.error(f"Invalid token error: {e}")
-            raise
-        except Exception as e:
-            print(f"Token decode error: {e}")
-            raise InvalidTokenError("Invalid token")
 
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         try:
@@ -219,10 +198,7 @@ def require_role(required_role: list[str]):
             menu_repository: Annotated[SysMenuRepository, Depends(get_sys_menu_repository)]
     ):
         if current_user.disabled:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Inactive user"
-            )
+            raise InvalidTokenError("Inactive user")
         sqids_helper = SqidsHelper()
         user_role = current_user.role
         user_role = sqids_helper.decode(user_role)

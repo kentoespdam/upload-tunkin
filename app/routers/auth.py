@@ -38,16 +38,12 @@ def authenticate_user(
         config: Annotated[Config, Depends(get_config)],
         response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
 ):
-    if not token_helper.validata_client(form_data.client_id, form_data.client_secret):
-        return response_builder.unauthorized("Invalid client credentials", headers={"WWW-Authenticate": "Bearer)"})
-
+    # Validate client credentials
+    token_helper.validata_client(form_data.client_id, form_data.client_secret)
+    # Authenticate user
     user = repository.authenticate(form_data)
-    if not user:
-        return response_builder.unauthorized("Incorrect username or password", headers={"WWW-Authenticate": "Bearer"})
-
     if user.get("disabled", True):
-        return response_builder.bad_request("inactive_user")
-
+        raise HTTPException(status_code=401, detail="Inactive user")
     try:
         _access_token = token_helper.create_access_token(
             user,
@@ -65,9 +61,11 @@ def authenticate_user(
         )
         return response_builder.created(data=token.model_dump())
 
+    except HTTPException as e:
+        return response_builder.from_http_exception(e)
     except Exception as e:
         LOGGER.error(f"Error creating tokens: {e}")
-        return response_builder.internal_server_error("could_not_create_tokens")
+        return response_builder.from_exception(e)
 
 
 @router.post(
@@ -125,10 +123,7 @@ async def read_users_me(
         return response_builder.ok(data=current_user.model_dump())
     except HTTPException as e:
         LOGGER.error(e)
-        if e.status_code == 400:
-            return response_builder.bad_request(e.detail)
-        else:
-            return response_builder.forbidden(e.detail)
+        return response_builder.from_http_exception(e)
 
 
 @router.options(

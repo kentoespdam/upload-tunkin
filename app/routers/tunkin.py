@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, UploadFile, Query, Depends, HTTPException
+from jwt import ExpiredSignatureError
 from starlette import status
 
 from app import TunkinRepository
@@ -24,17 +25,15 @@ def upload_file(periode: str,
                 user: Annotated[User, Depends(require_role(["payrollprocess"]))],
                 response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)]):
     try:
+
         result = repository.fetch_page_data(periode, query)
         return response_builder.paginated(result)
     except HTTPException as e:
         LOGGER.error(e)
-        if e.status_code == status.HTTP_400_BAD_REQUEST:
-            return response_builder.bad_request(e.detail)
-        if e.status_code == status.HTTP_403_FORBIDDEN:
-            return response_builder.forbidden(e.detail)
+        return response_builder.from_exception(e)
     except Exception as e:
         LOGGER.error(e)
-        return response_builder.internal_server_error("An error occurred while processing the request.")
+        return response_builder.from_exception(e)
 
 
 @router.post("/upload", summary="Upload File Excel Tunkin")
