@@ -77,7 +77,7 @@ class DatabaseHelper:
                     conn.rollback()
                     LOGGER.error(e)
 
-    def fetch_page(self, query: str, params: tuple = (), page: int = 1, page_size: int = 10)->BasePageResponse:
+    def fetch_page(self, query: str, params: tuple = (), page: int = 1, page_size: int = 10) -> BasePageResponse:
         count = self.fetch_count(query, params)
 
         offset = (page - 1) * page_size
@@ -88,9 +88,11 @@ class DatabaseHelper:
         return BasePageResponse(
             content=rows.to_dict("records"),
             total=count,
+            is_first=page == 1,
+            is_last=offset + page_size >= count,
             page=page,
             page_size=page_size,
-            total_pages=(count + page_size - 1)
+            total_pages=round(count / page_size) + (1 if count % page_size > 0 else 0)
         )
 
     @staticmethod
