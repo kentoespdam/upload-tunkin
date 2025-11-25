@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime
 
+import pytz
 from dotenv import load_dotenv
 from pymysql.cursors import DictCursor
 from sqids import Sqids
@@ -47,3 +48,6 @@ class SqidsHelper:
     def decode(self, hashid: str) -> int:
         decoded = self.sqids.decode(hashid)
         return decoded[1]
+
+
+TIMEZONE = pytz.timezone('Asia/Jakarta')

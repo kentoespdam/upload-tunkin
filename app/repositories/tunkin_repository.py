@@ -39,11 +39,22 @@ class TunkinRepository:
     def fetch_page_data(self, periode: str, req: TunkinRequest,):
         query = f"""
             SELECT
-                periode,
-                nipam,
-                nominal
-            FROM {self.config.kpi_table_name}
-            WHERE periode = %s
+                kpi.periode AS periode, 
+                kpi.nipam AS nipam, 
+                ep.emp_name AS nama, 
+                po.pos_name AS jabatan, 
+                org.org_name AS organisasi, 
+                sef.text AS status_pegawai,
+                kpi.nominal AS nominal
+            FROM {self.config.kpi_table_name} kpi
+            INNER JOIN employee AS em ON kpi.nipam = em.emp_code
+            INNER JOIN emp_profile AS ep ON em.emp_profile_id = ep.emp_profile_id
+            INNER JOIN position AS po ON em.emp_pos_id = po.pos_id
+            INNER JOIN organization AS org ON po.pos_org_id = org.org_id
+            INNER JOIN sys_reference AS sef ON sef.`code` = 'emp_flag' 
+                AND em.emp_flag = sef.`value` 
+            WHERE kpi.periode = %s
+            ORDER BY org.org_level , po.pos_level
         """
         params = (periode,)
         if req.nipam:
