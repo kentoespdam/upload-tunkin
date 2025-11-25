@@ -39,6 +39,7 @@ class TunkinRepository:
     def fetch_page_data(self, periode: str, req: TunkinRequest,):
         query = f"""
             SELECT
+                kpi.id AS id,
                 kpi.periode AS periode, 
                 kpi.nipam AS nipam, 
                 ep.emp_name AS nama, 

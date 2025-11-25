@@ -401,3 +401,14 @@ def get_response_builder() -> ResponseBuilder:
 class CustomException(Exception):
     def __init__(self, message: Optional[str] = None):
         self.message = message
+
+
+class TunkinModel(BaseModel):
+    id: str
+    periode: str
+    nipam: str
+    nama: str
+    jabatan: str
+    organisasi: str
+    status_pegawai: str
+    nominal: int
