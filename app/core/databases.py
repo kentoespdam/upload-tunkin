@@ -10,8 +10,8 @@ from app.models.response_model import BasePageResponse
 
 def get_connection_pool() -> pymysqlpool.Connection:
     config = {
-        "size": 2,
-        "maxsize": 10,
+        "size": os.getenv('POOL_SIZE', 1),
+        "maxsize": os.getenv('POOL_SIZE', 5),
         "pre_create_num": 2,
         "name": "kepegawaian-pool",
         'host': os.getenv('DB_HOST'),
