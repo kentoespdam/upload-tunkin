@@ -1,4 +1,5 @@
 import os
+from typing import Optional, Dict, Any
 
 import pandas as pd
 import pymysqlpool
@@ -44,16 +45,15 @@ class DatabaseHelper:
         finally:
             cursor.close()
 
-    def fetchone(self, query: str, params: tuple = ()):
+    def fetchone(self, query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
         try:
             with self.con as conn:
                 with conn.cursor(cursor=DictCursor) as cursor:
                     cursor.execute(query, params)
-                    columns = [desc[0] for desc in cursor.description]
                     rows = cursor.fetchone()
                     if not rows:
                         return None
-                    return dict(zip(columns, rows))
+                    return rows
         except Exception as e:
             LOGGER.error(e)
         finally:

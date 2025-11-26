@@ -30,7 +30,7 @@ class SysUserRepository:
 
         return result
 
-    def get_user(self, username: str):
+    def get_user(self, username: str) -> Optional[Dict[str, Any]]:
         query = f"""
             SELECT
                 su.user_login AS username,
@@ -52,10 +52,10 @@ class SysUserRepository:
             if not user_data:
                 return None
 
-            # if 'role' in user_data and user_data['role'] is not None:
-            #     user_data['role'] = self.sqids_helper.encode(user_data['role'])
-            # else:
-            #     user_data['role'] = ''
+            if 'role' in user_data and user_data['role'] is not None:
+                user_data['role'] = self.sqids_helper.encode(user_data['role'])
+            else:
+                user_data['role'] = ''
             return user_data
         except Exception as e:
             LOGGER.error(f"Error fetching user: {e}")
