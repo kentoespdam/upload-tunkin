@@ -1,10 +1,10 @@
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from typing import Optional, Annotated, Dict, Any
 
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from jwt import InvalidTokenError
+from jwt import InvalidTokenError, DecodeError, ExpiredSignatureError
 from starlette import status
 
 from app.core.config import Config, SqidsHelper, LOGGER
@@ -64,7 +64,7 @@ class SysUserRepository:
     def validate_password(self, plain_password: str, hashed_password: str):
         query = "SELECT PASSWORD(%s) AS user_password"
         params = (plain_password,)
-        result = self.db_helper.fetch_tuple_data(query, params, fetchone=True)
+        result = self.db_helper.fetchone(query, params)
         if not result:
             raise INCORRECT_USERNAME_OR_PASSWORD
         stored_hashed_password = result['user_password']
@@ -92,7 +92,7 @@ class TokenHelper:
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None):
         try:
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             expire = now + (expires_delta or timedelta(minutes=self.config.jwt_access_token_expire_minutes))
 
             to_encode = {
@@ -120,7 +120,7 @@ class TokenHelper:
 
     def create_refresh_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         try:
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             expire = now + (expires_delta or timedelta(minutes=self.config.jwt_access_token_expire_minutes))
 
             to_encode = {
@@ -159,7 +159,7 @@ class TokenHelper:
             token_data = TokenPayload(username=username)
             user = self.repository.get_user(token_data.username)
 
-            if user is None or user.get('disabled', True):
+            if user is None or user['disabled'] == True:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Inactive user",
@@ -177,7 +177,14 @@ class TokenHelper:
                 algorithms=[self.config.jwt_algorithm]
             )
             return payload
-        except Exception:
+        except ExpiredSignatureError as e:
+            LOGGER.error(e)
+            raise
+        except (InvalidTokenError, DecodeError) as e:
+            LOGGER.error(e)
+            raise
+        except Exception as e:
+            LOGGER.error(e)
             raise
 
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:

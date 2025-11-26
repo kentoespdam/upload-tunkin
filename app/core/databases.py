@@ -30,11 +30,11 @@ def get_connection_pool() -> pymysqlpool.Connection:
 class DatabaseHelper:
     def __init__(self):
         self.sqids = SqidsHelper()
-        self.con = get_connection_pool()
 
-    def fetch_data(self, query: str, params: tuple = ()):
+    @staticmethod
+    def fetch_data(query: str, params: tuple = ()):
         try:
-            with self.con as conn:
+            with get_connection_pool() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(query, params)
                     column = [desc[0] for desc in cursor.description]
@@ -42,12 +42,11 @@ class DatabaseHelper:
                     return pd.DataFrame(rows, columns=column)
         except Exception as e:
             LOGGER.error(e)
-        finally:
-            cursor.close()
 
-    def fetchone(self, query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
+    @staticmethod
+    def fetchone(query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
         try:
-            with self.con as conn:
+            with get_connection_pool() as conn:
                 with conn.cursor(cursor=DictCursor) as cursor:
                     cursor.execute(query, params)
                     rows = cursor.fetchone()
@@ -56,23 +55,21 @@ class DatabaseHelper:
                     return rows
         except Exception as e:
             LOGGER.error(e)
-        finally:
-            cursor.close()
 
-    def fetch_tuple_data(self, query: str, params: tuple = (), fetchone: bool = False):
+    @staticmethod
+    def fetch_tuple_data(query: str, params: tuple = (), fetchone: bool = False):
         try:
-            with self.con as conn:
+            with get_connection_pool() as conn:
                 with conn.cursor(cursor=DictCursor) as cursor:
                     cursor.execute(query, params)
                     return cursor.fetchone() if fetchone else cursor.fetchall()
         except Exception as e:
             LOGGER.error(e)
-        finally:
-            cursor.close()
 
-    def save_update(self, query: str, data: list):
+    @staticmethod
+    def save_update(query: str, data: list):
         try:
-            with self.con as conn:
+            with get_connection_pool() as conn:
                 with conn.cursor() as cursor:
                     try:
                         cursor.executemany(query, data)
@@ -84,12 +81,11 @@ class DatabaseHelper:
                         LOGGER.error(e)
         except Exception as e:
             LOGGER.error(e)
-        finally:
-            cursor.close()
 
-    def save_update_single(self, query: str, data: tuple):
+    @staticmethod
+    def save_update_single(query: str, data: tuple):
         try:
-            with self.con as conn:
+            with get_connection_pool() as conn:
                 with conn.cursor() as cursor:
                     try:
                         cursor.execute(query, data)
@@ -101,8 +97,6 @@ class DatabaseHelper:
                         LOGGER.error(e)
         except Exception as e:
             LOGGER.error(e)
-        finally:
-            cursor.close()
 
     def fetch_page(self, query: str, params: tuple = (), page: int = 1, page_size: int = 10) -> BasePageResponse:
         count = self.fetch_count(query, params)
@@ -126,15 +120,9 @@ class DatabaseHelper:
     def fetch_count(self, query: str, params: tuple = ()) -> int:
         count_query = f"SELECT COUNT(*) as total FROM ({query}) AS subquery"
         try:
-            with self.con as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(count_query, params)
-                    result = cursor.fetchone()
-                    if result:
-                        return result['total']
+            result = self.fetchone(count_query, params)
+            return result['total']
         except Exception as e:
             LOGGER.error(e)
-        finally:
-            cursor.close()
 
         return 0
