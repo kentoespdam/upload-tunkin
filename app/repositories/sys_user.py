@@ -2,7 +2,6 @@ from datetime import timedelta, datetime
 from typing import Optional, Annotated, Dict, Any
 
 import jwt
-import pytz
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jwt import InvalidTokenError
@@ -47,17 +46,16 @@ class SysUserRepository:
             WHERE
                 su.user_login = %s
         """
-        params = (username,)
+        params = (str(username),)
         try:
-            result = self.db_helper.fetch_data(query, params)
-            if result.empty:
+            user_data = self.db_helper.fetchone(query, params)
+            if not user_data:
                 return None
 
-            user_data = result.to_dict(orient="records")[0]
-            if 'role' in user_data and user_data['role'] is not None:
-                user_data['role'] = self.sqids_helper.encode(user_data['role'])
-            else:
-                user_data['role'] = ''
+            # if 'role' in user_data and user_data['role'] is not None:
+            #     user_data['role'] = self.sqids_helper.encode(user_data['role'])
+            # else:
+            #     user_data['role'] = ''
             return user_data
         except Exception as e:
             LOGGER.error(f"Error fetching user: {e}")
@@ -84,7 +82,6 @@ class TokenHelper:
     def __init__(self):
         self.config = Config()
         self.repository = SysUserRepository()
-        self.timezone = pytz.timezone('Asia/Jakarta')
         self.response_builder = ResponseBuilder()
 
     def validata_client(self, client_id: str, client_secret: str):
@@ -95,7 +92,7 @@ class TokenHelper:
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None):
         try:
-            now = datetime.now(self.timezone)
+            now = datetime.now()
             expire = now + (expires_delta or timedelta(minutes=self.config.jwt_access_token_expire_minutes))
 
             to_encode = {
@@ -123,7 +120,7 @@ class TokenHelper:
 
     def create_refresh_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         try:
-            now = datetime.now(self.timezone)
+            now = datetime.now()
             expire = now + (expires_delta or timedelta(minutes=self.config.jwt_access_token_expire_minutes))
 
             to_encode = {
