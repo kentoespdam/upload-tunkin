@@ -8,23 +8,20 @@ from pymysql.cursors import DictCursor
 from app.core.config import LOGGER, SqidsHelper
 from app.models.response_model import BasePageResponse
 
-
-def get_connection_pool() -> pymysqlpool.Connection:
-    config = {
-        "size": int(os.getenv('POOL_SIZE', 2)),
-        "maxsize": int(os.getenv('POOL_SIZE', 5)),
-        "pre_create_num": 2,
-        "name": "kepegawaian-pool",
-        'host': os.getenv('DB_HOST'),
-        'port': int(os.getenv('DB_PORT') or 3306),
-        'user': os.getenv('DB_USER'),
-        'password': os.getenv('DB_PASS'),
-        'database': os.getenv('DB_NAME'),
-        'charset': 'utf8mb4',
-        'cursorclass': DictCursor,
-    }
-
-    return pymysqlpool.ConnectionPool(**config).get_connection()
+_db_config = {
+    "size": int(os.getenv('POOL_SIZE', 2)),
+    "maxsize": int(os.getenv('POOL_SIZE', 5)),
+    "pre_create_num": 2,
+    "name": "kepegawaian-pool",
+    'host': os.getenv('DB_HOST'),
+    'port': int(os.getenv('DB_PORT') or 3306),
+    'user': os.getenv('DB_USER'),
+    'password': os.getenv('DB_PASS'),
+    'database': os.getenv('DB_NAME'),
+    'charset': 'utf8mb4',
+    'cursorclass': DictCursor,
+}
+db_pool = pymysqlpool.ConnectionPool(**_db_config)
 
 
 class DatabaseHelper:
@@ -34,7 +31,7 @@ class DatabaseHelper:
     @staticmethod
     def fetch_data(query: str, params: tuple = ()):
         try:
-            with get_connection_pool() as conn:
+            with db_pool.get_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(query, params)
                     column = [desc[0] for desc in cursor.description]
@@ -46,7 +43,7 @@ class DatabaseHelper:
     @staticmethod
     def fetchone(query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
         try:
-            with get_connection_pool() as conn:
+            with db_pool.get_connection() as conn:
                 with conn.cursor(cursor=DictCursor) as cursor:
                     cursor.execute(query, params)
                     rows = cursor.fetchone()
@@ -59,7 +56,7 @@ class DatabaseHelper:
     @staticmethod
     def fetch_tuple_data(query: str, params: tuple = (), fetchone: bool = False):
         try:
-            with get_connection_pool() as conn:
+            with db_pool.get_connection() as conn:
                 with conn.cursor(cursor=DictCursor) as cursor:
                     cursor.execute(query, params)
                     return cursor.fetchone() if fetchone else cursor.fetchall()
@@ -69,7 +66,7 @@ class DatabaseHelper:
     @staticmethod
     def save_update(query: str, data: list):
         try:
-            with get_connection_pool() as conn:
+            with db_pool.get_connection() as conn:
                 with conn.cursor() as cursor:
                     try:
                         cursor.executemany(query, data)
@@ -85,7 +82,7 @@ class DatabaseHelper:
     @staticmethod
     def save_update_single(query: str, data: tuple):
         try:
-            with get_connection_pool() as conn:
+            with db_pool.get_connection() as conn:
                 with conn.cursor() as cursor:
                     try:
                         cursor.execute(query, data)

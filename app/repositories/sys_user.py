@@ -147,6 +147,7 @@ class TokenHelper:
         try:
             payload = self.decode_token(token)
             username = payload.get("sub")
+            LOGGER.info("username", username)
             token_type: str = payload.get("type")
 
             if username is None or token_type != "access_token":
