@@ -67,6 +67,8 @@ class BaseResponse(BaseModel):
 class BasePageResponse(BaseModel):
     content: List[Dict[Union[str, Hashable], Any]]
     total: int
+    is_empty: bool = False
+    total_elements: int
     is_first: bool
     is_last: bool
     page: int

@@ -97,6 +97,7 @@ class DatabaseHelper:
 
     def fetch_page(self, query: str, params: tuple = (), page: int = 1, page_size: int = 10) -> BasePageResponse:
         count = self.fetch_count(query, params)
+        LOGGER.info(query % params)
 
         offset = (page - 1) * page_size
         query += " LIMIT %s OFFSET %s"
@@ -104,9 +105,13 @@ class DatabaseHelper:
         rows = self.fetch_data(query, paginated_params)
         rows['id'] = rows['id'].apply(lambda x: self.sqids.encode(x)).astype(str)
 
+        rows_len = len(rows)
+
         return BasePageResponse(
             content=rows.to_dict("records"),
             total=count,
+            is_empty=rows_len == 0,
+            total_elements=rows_len,
             is_first=page == 1,
             is_last=offset + page_size >= count,
             page=page,

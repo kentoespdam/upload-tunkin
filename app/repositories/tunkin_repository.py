@@ -4,7 +4,7 @@ from typing import Optional, Annotated
 import pandas as pd
 from fastapi import UploadFile, HTTPException, Depends
 
-from app.core.config import Config
+from app.core.config import Config, LOGGER
 from app.core.databases import DatabaseHelper
 from app.models.request_model import TunkinRequest
 from app.models.response_model import User
@@ -55,12 +55,17 @@ class TunkinRepository:
             INNER JOIN sys_reference AS sef ON sef.`code` = 'emp_flag' 
                 AND em.emp_flag = sef.`value` 
             WHERE kpi.periode = %s
-            ORDER BY org.org_level , po.pos_level
         """
         params = (periode,)
         if req.nipam:
-            query += " AND nipam = %s"
+            query += " AND kpi.nipam = %s"
             params += (req.nipam,)
+        if req.nama:
+            query += " AND ep.emp_name LIKE %s"
+            params += (f"%{req.nama}%",)
+
+        query +=" ORDER BY org.org_level , po.pos_level"
+        LOGGER.info(query % params)
         return self.db_helper.fetch_page(query, params, req.page, req.size)
 
     async def upload(self, file: UploadFile):
