@@ -1,7 +1,6 @@
 from typing import Annotated
 
 from fastapi import APIRouter, UploadFile, Query, Depends, HTTPException
-from jwt import ExpiredSignatureError
 from starlette import status
 
 from app import TunkinRepository
@@ -34,6 +33,16 @@ def upload_file(periode: str,
     except Exception as e:
         LOGGER.error(e)
         return response_builder.from_exception(e)
+
+
+@router.get("/exists/{periode}", summary="Data Tunkin")
+async def check_exist(
+        periode: str,
+        user: Annotated[User, Depends(require_role(["payrollprocess"]))],
+        response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)]
+):
+    result = await repository.check_exist_tunkin(periode)
+    return response_builder.success(result)
 
 
 @router.post("/upload", summary="Upload File Excel Tunkin")

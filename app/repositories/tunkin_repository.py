@@ -36,7 +36,7 @@ class TunkinRepository:
         self._max_file_size = 50 * 1024 * 1024  # 50MB
         self.db_helper = db_helper
 
-    def fetch_page_data(self, periode: str, req: TunkinRequest,):
+    def fetch_page_data(self, periode: str, req: TunkinRequest, ):
         query = f"""
             SELECT
                 kpi.id AS id,
@@ -64,9 +64,22 @@ class TunkinRepository:
             query += " AND ep.emp_name LIKE %s"
             params += (f"%{req.nama}%",)
 
-        query +=" ORDER BY org.org_level , po.pos_level"
+        query += " ORDER BY org.org_level , po.pos_level"
         LOGGER.info(query % params)
         return self.db_helper.fetch_page(query, params, req.page, req.size)
+
+    async def check_exist_tunkin(self, periode: str):
+        query = "SELECT EXISTS(SELECT 1 FROM salary_kpi WHERE periode = %s) AS is_exist"
+        params = (periode,)
+        try:
+            result = self.db_helper.fetchone(query, params)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+        if not result:
+            return {"is_exist": False}
+
+        return {"is_exist": bool(result.get("is_exist"))}
 
     async def upload(self, file: UploadFile):
         self.cleanup()
