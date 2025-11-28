@@ -1,12 +1,12 @@
 import io
 from typing import Optional, Annotated
 
-import pandas as pd
 from fastapi import UploadFile, HTTPException, Depends
+from openpyxl.reader.excel import load_workbook
 
 from app.core.config import Config, LOGGER
 from app.core.databases import DatabaseHelper
-from app.models.request_model import TunkinRequest
+from app.models.request_model import TunkinRequest, TunkinUploadRequest
 from app.models.response_model import User
 from app.repositories.sys_user import TokenHelper
 
@@ -16,6 +16,7 @@ TEMPLATE_COLUMN = [
     "NIPAM",
     "JUMLAH PENERIMAAN"
 ]
+START_ROW = 6
 
 token_helper = TokenHelper()
 
@@ -31,6 +32,7 @@ def get_current_active_user(
 class TunkinRepository:
     def __init__(self, config=Config(), db_helper: DatabaseHelper = DatabaseHelper()):
         self.config = config
+        self.periode: str = ""
         self.file: Optional[UploadFile] = None
         self._allowed_extension = {'xlsx', 'xls'}
         self._max_file_size = 50 * 1024 * 1024  # 50MB
@@ -47,7 +49,7 @@ class TunkinRepository:
                 org.org_name AS organisasi, 
                 sef.text AS status_pegawai,
                 kpi.nominal AS nominal
-            FROM {self.config.kpi_table_name} kpi
+            FROM salary_kpi kpi
             INNER JOIN employee AS em ON kpi.nipam = em.emp_code
             INNER JOIN emp_profile AS ep ON em.emp_profile_id = ep.emp_profile_id
             INNER JOIN position AS po ON em.emp_pos_id = po.pos_id
@@ -81,9 +83,10 @@ class TunkinRepository:
 
         return {"is_exist": bool(result.get("is_exist"))}
 
-    async def upload(self, file: UploadFile):
+    async def upload(self, req: TunkinUploadRequest):
         self.cleanup()
-        self.file = file
+        self.periode = req.periode
+        self.file = req.file
         await self._file_checker()
 
         return await self.process_excel_data()
@@ -142,6 +145,64 @@ class TunkinRepository:
             contents = await self.file.read()
             file_like = io.BytesIO(contents)
 
+            workbook = load_workbook(file_like)
+            sheet = workbook.active
+
+            data = []
+            for row in sheet.iter_rows(min_row=START_ROW, values_only=True):
+                if row is None or row[1] is None:
+                    continue
+
+                data.append((str(row[1]), str(row[2]), row[4]))
+
+            if len(data) == 0:
+                raise HTTPException(status_code=400, detail="File Excel kosong")
+
+            unique_periode = set([row[0] for row in data])
+            if len(unique_periode) > 1:
+                raise HTTPException(status_code=400, detail="Periode pada file excel tidak konsisten!")
+
+            for value in unique_periode:
+                if value != self.periode:
+                    raise HTTPException(status_code=400, detail="Periode pada file dengan request tidak sesuai!")
+
+            query = f"""
+                  INSERT INTO salary_kpi (periode, nipam, nominal)
+                  VALUES (%s, %s, %s)
+                  ON DUPLICATE KEY
+                  UPDATE nominal = VALUES (nominal);
+                  """
+
+            affected = self.db_helper.save_update(query, data)
+            processed_data = {
+                "status": "success",
+                "affected_rows": affected or 0
+            }
+
+            return processed_data
+        except Exception as e:
+            raise
+        finally:
+            if hasattr(self.file, 'seek'):
+                await self.file.seek(0)
+
+    def cleanup(self):
+        if self.file:
+            self.file.file.close()
+            self.file = None
+
+
+"""
+    async def process_excel_data(self):
+        if not self.file:
+            raise HTTPException(status_code=400, detail="File tidak ditemukan")
+
+        try:
+            await self.file.seek(0)
+
+            contents = await self.file.read()
+            file_like = io.BytesIO(contents)
+
             df = pd.read_excel(file_like)
 
             if df.empty:
@@ -162,14 +223,14 @@ class TunkinRepository:
                 row['JUMLAH PENERIMAAN']
             ) for _, row in df.iterrows()]
 
-            query = f"""
-                  INSERT INTO {self.config.kpi_table_name} (periode, nipam, nominal)
+            query = f"
+                  INSERT INTO salary_kpi (periode, nipam, nominal)
                   VALUES (%s, %s, %s)
                   ON DUPLICATE KEY
                   UPDATE
                       nominal =
                   VALUES (nominal);
-                  """
+                  "
 
             affected = self.db_helper.save_update(query, data)
             processed_data = {
@@ -183,8 +244,4 @@ class TunkinRepository:
         finally:
             if hasattr(self.file, 'seek'):
                 await self.file.seek(0)
-
-    def cleanup(self):
-        if self.file:
-            self.file.file.close()
-            self.file = None
+"""

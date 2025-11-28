@@ -1,5 +1,6 @@
 from typing import Optional
 
+from fastapi import UploadFile
 from pydantic import BaseModel
 
 
@@ -10,4 +11,9 @@ class PaginationQuery(BaseModel):
 
 class TunkinRequest(PaginationQuery):
     nipam: Optional[str] = None
-    nama: Optional[str]=None
+    nama: Optional[str] = None
+
+
+class TunkinUploadRequest(BaseModel):
+    periode: str
+    file: UploadFile

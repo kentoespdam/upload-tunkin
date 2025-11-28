@@ -71,8 +71,8 @@ class DatabaseHelper:
                     try:
                         cursor.executemany(query, data)
                         affected = cursor.rowcount
-                        LOGGER.info(f"{affected} rows affected")
                         conn.commit()
+                        return affected
                     except Exception as e:
                         conn.rollback()
                         LOGGER.error(e)

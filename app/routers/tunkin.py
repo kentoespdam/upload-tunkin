@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, UploadFile, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi.params import Form
 from starlette import status
 
 from app import TunkinRepository
 from app.core.config import LOGGER
-from app.models.request_model import TunkinRequest
+from app.models.request_model import TunkinRequest, TunkinUploadRequest
 from app.models.response_model import User, ResponseBuilder, get_response_builder
 from app.repositories.sys_user import require_role
 
@@ -27,9 +28,9 @@ def upload_file(periode: str,
 
         result = repository.fetch_page_data(periode, query)
         return response_builder.paginated(result)
-    except HTTPException as e:
-        LOGGER.error(e)
-        return response_builder.from_exception(e)
+    # except HTTPException as e:
+    #     LOGGER.error(e)
+    #     return response_builder.from_exception(e)
     except Exception as e:
         LOGGER.error(e)
         return response_builder.from_exception(e)
@@ -46,11 +47,11 @@ async def check_exist(
 
 
 @router.post("/upload", summary="Upload File Excel Tunkin")
-async def upload_file(file: UploadFile,
+async def upload_file(req: Annotated[TunkinUploadRequest, Form()],
                       user: Annotated[User, Depends(require_role(["payrollprocess"]))],
                       response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)]):
     try:
-        result = await repository.upload(file)
+        result = await repository.upload(req)
         return response_builder.success(result)
     except HTTPException as e:
         if e.status_code == status.HTTP_400_BAD_REQUEST:
