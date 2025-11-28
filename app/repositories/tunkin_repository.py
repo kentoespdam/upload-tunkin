@@ -3,6 +3,7 @@ from typing import Optional, Annotated
 
 from fastapi import UploadFile, HTTPException, Depends
 from openpyxl.reader.excel import load_workbook
+from openpyxl.workbook import Workbook
 
 from app.core.config import Config, LOGGER
 from app.core.databases import DatabaseHelper
@@ -178,13 +179,19 @@ class TunkinRepository:
                 "status": "success",
                 "affected_rows": affected or 0
             }
-
+            self._save_file(workbook)
             return processed_data
         except Exception as e:
             raise
         finally:
             if hasattr(self.file, 'seek'):
                 await self.file.seek(0)
+
+    def _save_file(self, wb: Workbook):
+        file_extension = self.file.filename.lower().split('.')[-1]
+        filename = f"input_tunkin_{self.periode}.{file_extension}"
+        save_path = f"uploads/{filename}"
+        wb.save(save_path)
 
     def cleanup(self):
         if self.file:
