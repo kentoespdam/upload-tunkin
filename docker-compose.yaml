@@ -1,6 +1,7 @@
 services:
-  app:
-    container_name: upload-tunkin
+  upload-tunkin-be:
+    container_name: upload-tunkin-be
+    image: upload-tunkin-be:latest
     build:
       context: .
       dockerfile: Dockerfile
