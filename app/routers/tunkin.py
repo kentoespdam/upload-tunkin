@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Depends, HTTPException
-from fastapi.params import Form, Path
+from fastapi.params import Form
 from starlette import status
 from starlette.responses import FileResponse
 
