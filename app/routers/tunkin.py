@@ -1,8 +1,9 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Depends, HTTPException
-from fastapi.params import Form
+from fastapi.params import Form, Path
 from starlette import status
+from starlette.responses import FileResponse
 
 from app import TunkinRepository
 from app.core.config import LOGGER
@@ -58,3 +59,9 @@ async def upload_file(req: Annotated[TunkinUploadRequest, Form()],
             return response_builder.bad_request(e.detail)
         if e.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
             return response_builder.internal_server_error(e.detail)
+
+@router.get("/download/template", summary="Download Template Excel Tunkin")
+async def download_template(
+        user: Annotated[User, Depends(require_role(["payrollprocess"]))],
+):
+    return FileResponse("template/template.xlsx", filename="template_tunkin.xlsx")
