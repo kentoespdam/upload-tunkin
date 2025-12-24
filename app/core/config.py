@@ -43,11 +43,11 @@ class SqidsHelper:
 
     def encode(self, number: int) -> str:
         now = datetime.now()
-        return self.sqids.encode([now.second, number, now.month, now.day, now.minute, now.microsecond])
+        return self.sqids.encode([number, now.year, now.month, now.day])
 
     def decode(self, hashid: str) -> int:
         decoded = self.sqids.decode(hashid)
-        return decoded[1]
+        return decoded[0]
 
 
 TIMEZONE = pytz.timezone('Asia/Jakarta')

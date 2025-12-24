@@ -5,7 +5,7 @@ from fastapi import UploadFile, HTTPException, Depends
 from openpyxl.reader.excel import load_workbook
 from openpyxl.workbook import Workbook
 
-from app.core.config import Config, LOGGER
+from app.core.config import Config, LOGGER, SqidsHelper
 from app.core.databases import DatabaseHelper
 from app.models.request_model import TunkinRequest, TunkinUploadRequest
 from app.models.response_model import User
@@ -38,9 +38,10 @@ class TunkinRepository:
         self._allowed_extension = {'xlsx', 'xls'}
         self._max_file_size = 50 * 1024 * 1024  # 50MB
         self.db_helper = db_helper
+        self.sqids=SqidsHelper()
 
     def fetch_page_data(self, periode: str, req: TunkinRequest, ):
-        query = f"""
+        query = """
             SELECT
                 kpi.id AS id,
                 kpi.periode AS periode, 
@@ -66,6 +67,11 @@ class TunkinRepository:
         if req.nama:
             query += " AND ep.emp_name LIKE %s"
             params += (f"%{req.nama}%",)
+        if req.orgId:
+            org_id=req.orgId.split("_")[-1]
+            org_id=self.sqids.decode(org_id)
+            query +=" AND (org.org_id = %s OR org.org_parent = %s)"
+            params += (org_id, org_id)
 
         query += " ORDER BY org.org_level , po.pos_level"
         LOGGER.info(query % params)
@@ -167,7 +173,7 @@ class TunkinRepository:
                 if value != self.periode:
                     raise HTTPException(status_code=400, detail="Periode pada file dengan request tidak sesuai!")
 
-            query = f"""
+            query = """
                   INSERT INTO salary_kpi (periode, nipam, nominal)
                   VALUES (%s, %s, %s)
                   ON DUPLICATE KEY
@@ -181,7 +187,7 @@ class TunkinRepository:
             }
             self._save_file(workbook)
             return processed_data
-        except Exception as e:
+        except Exception:
             raise
         finally:
             if hasattr(self.file, 'seek'):

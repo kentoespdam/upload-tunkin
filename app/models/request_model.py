@@ -12,6 +12,7 @@ class PaginationQuery(BaseModel):
 class TunkinRequest(PaginationQuery):
     nipam: Optional[str] = None
     nama: Optional[str] = None
+    orgId: Optional[str] = None
 
 
 class TunkinUploadRequest(BaseModel):

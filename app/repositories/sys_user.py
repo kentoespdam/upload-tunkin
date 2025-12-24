@@ -1,15 +1,15 @@
-from datetime import timedelta, datetime, timezone
-from typing import Optional, Annotated, Dict, Any
+from datetime import datetime, timedelta, timezone
+from typing import Annotated, Any, Dict, Optional
 
 import jwt
 from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from jwt import InvalidTokenError, DecodeError, ExpiredSignatureError
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jwt import DecodeError, ExpiredSignatureError, InvalidTokenError
 from starlette import status
 
-from app.core.config import Config, SqidsHelper, LOGGER
+from app.core.config import LOGGER, Config, SqidsHelper
 from app.core.databases import DatabaseHelper
-from app.models.response_model import User, TokenPayload, ResponseBuilder
+from app.models.response_model import ResponseBuilder, TokenPayload, User
 from app.repositories.sys_menu import SysMenuRepository, get_sys_menu_repository
 
 INCORRECT_USERNAME_OR_PASSWORD = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
@@ -31,7 +31,7 @@ class SysUserRepository:
         return result
 
     def get_user(self, username: str) -> Optional[Dict[str, Any]]:
-        query = f"""
+        query = """
             SELECT
                 su.user_login AS username,
                 ep.emp_name AS full_name,
@@ -45,7 +45,7 @@ class SysUserRepository:
 	            INNER JOIN emp_profile AS ep ON em.emp_profile_id= ep.emp_profile_id
             WHERE
                 su.user_login = %s
-        """
+            """
         params = (str(username),)
         try:
             user_data = self.db_helper.fetchone(query, params)
@@ -159,7 +159,7 @@ class TokenHelper:
             token_data = TokenPayload(username=username)
             user = self.repository.get_user(token_data.username)
 
-            if user is None or user['disabled'] == True:
+            if user is None or user['disabled']:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Inactive user",
@@ -218,7 +218,7 @@ def require_role(required_role: list[str]):
     return role_checker
 
 
-def require_any_role(required_roles: list):
+def require_any_role():
     """Decorator for multiple role-based authorization"""
 
     def role_checker(current_user: Dict[str, Any] = Depends(TokenHelper().get_current_user)):
@@ -226,11 +226,6 @@ def require_any_role(required_roles: list):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Inactive user"
-            )
-        if current_user.get('role') not in required_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions"
             )
         return current_user
 

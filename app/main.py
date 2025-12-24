@@ -5,7 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.core.config import LOGGER
 from app.models.response_model import ResponseBuilder
-from app.routers import tunkin, auth
+from app.routers import tunkin, auth, organization
 
 app = FastAPI(
     title="Upload Tunkin API",
@@ -30,14 +30,14 @@ async def expired_signature_exception_handler(request, exc: ExpiredSignatureErro
 
 
 @app.exception_handler(InvalidTokenError)
-async def expired_signature_exception_handler(request, exc: InvalidTokenError):
+async def expired_signature_exception_handler(request, exc: InvalidTokenError):  # noqa: F811
     LOGGER.error(f"http exception: {", ".join(exc.args)}")
     res = ResponseBuilder()
     return res.unauthorized(", ".join(exc.args), headers={"WWW-Authenticate": "Bearer"})
 
 
 @app.exception_handler(DecodeError)
-async def expired_signature_exception_handler(request, exc: DecodeError):
+async def expired_signature_exception_handler(request, exc: DecodeError):  # noqa: F811
     LOGGER.error(f"http exception: {", ".join(exc.args)}")
     res = ResponseBuilder()
     return res.unauthorized(", ".join(exc.args), headers={"WWW-Authenticate": "Bearer"})
@@ -50,3 +50,4 @@ def index():
 
 app.include_router(auth.router)
 app.include_router(tunkin.router)
+app.include_router(organization.router)
