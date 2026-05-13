@@ -7,6 +7,8 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
+from app.core.config import SqidsHelper
+
 """
 JWT Model
 """
@@ -194,6 +196,12 @@ class ResponseBuilder:
             data: BasePageResponse,
             message: str = "Paginated data retrieved successfully",
             headers: Optional[Mapping[str, str]] = None) -> JSONResponse:
+        # Encode IDs at the HTTP edge (deterministic, not in data layer)
+        sqids_helper = SqidsHelper()
+        for item in data.content:
+            if "id" in item:
+                item["id"] = sqids_helper.encode(item["id"])
+
         default_headers = {
             "Content-Type": "application/json",
             "X-Request-ID": ResponseBuilder._generate_request_id()

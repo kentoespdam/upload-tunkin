@@ -5,7 +5,7 @@ import pandas as pd
 import pymysqlpool
 from pymysql.cursors import DictCursor
 
-from app.core.config import LOGGER, SqidsHelper
+from app.core.config import LOGGER
 from app.models.response_model import BasePageResponse
 
 
@@ -29,7 +29,7 @@ def get_connection_pool() -> pymysqlpool.Connection:
 
 class DatabaseHelper:
     def __init__(self):
-        self.sqids = SqidsHelper()
+        pass
 
     @staticmethod
     def fetch_data(query: str, params: tuple = ()):
@@ -105,7 +105,6 @@ class DatabaseHelper:
         query += " LIMIT %s OFFSET %s"
         paginated_params = params + (page_size, offset)
         rows = self.fetch_data(query, paginated_params)
-        rows['id'] = rows['id'].apply(lambda x: self.sqids.encode(x)).astype(str)
 
         return BasePageResponse(
             content=rows.to_dict("records"),
