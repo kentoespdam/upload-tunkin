@@ -12,6 +12,7 @@ from app.core.databases import DatabaseHelper
 from app.models.response_model import User, TokenPayload, ResponseBuilder
 from app.repositories.sys_menu import SysMenuRepository, get_sys_menu_repository
 
+
 INCORRECT_USERNAME_OR_PASSWORD = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                                detail="Incorrect username or password")
 
@@ -76,6 +77,12 @@ class SysUserRepository:
 JWT Token Helper
 """
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+async def get_current_user_from_token(token: Annotated[str, Depends(oauth2_scheme)]) -> User:
+    """Dependency function to get current user from token."""
+    token_helper = get_token_helper()
+    return await token_helper.get_current_user(token)
 
 
 class TokenHelper:
@@ -198,7 +205,7 @@ class TokenHelper:
 
 def require_role(required_role: list[str]):
     def role_checker(
-            current_user: Annotated[User, Depends(TokenHelper().get_current_user)],
+            current_user: Annotated[User, Depends(get_current_user_from_token)],
             menu_repository: Annotated[SysMenuRepository, Depends(get_sys_menu_repository)]
     ):
         if current_user.disabled:
@@ -221,8 +228,8 @@ def require_role(required_role: list[str]):
 def require_any_role(required_roles: list):
     """Decorator for multiple role-based authorization"""
 
-    def role_checker(current_user: Dict[str, Any] = Depends(TokenHelper().get_current_user)):
-        if current_user["disabled"]:
+    def role_checker(current_user: User = Depends(get_current_user_from_token)):
+        if current_user.disabled:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Inactive user"
@@ -235,3 +242,13 @@ def require_any_role(required_roles: list):
         return current_user
 
     return role_checker
+
+
+def get_token_helper() -> "TokenHelper":
+    """Factory function to create TokenHelper instance."""
+    return TokenHelper()
+
+
+def get_sys_user_repository() -> SysUserRepository:
+    """Factory function to create SysUserRepository instance."""
+    return SysUserRepository()

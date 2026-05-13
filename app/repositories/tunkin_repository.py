@@ -8,7 +8,6 @@ from app.core.config import Config
 from app.core.databases import DatabaseHelper
 from app.models.request_model import TunkinRequest
 from app.models.response_model import User
-from app.repositories.sys_user import TokenHelper
 
 TEMPLATE_COLUMN = [
     "NO",
@@ -17,15 +16,10 @@ TEMPLATE_COLUMN = [
     "JUMLAH PENERIMAAN"
 ]
 
-token_helper = TokenHelper()
 
-
-def get_current_active_user(
-        current_user: Annotated[User, Depends(token_helper.get_current_user)],
-) -> User:
-    if current_user['disabled']:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
+def get_tunkin_repository() -> "TunkinRepository":
+    """Factory function to create TunkinRepository instance."""
+    return TunkinRepository()
 
 
 class TunkinRepository:

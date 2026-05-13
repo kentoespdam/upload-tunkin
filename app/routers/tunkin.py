@@ -1,14 +1,13 @@
 from typing import Annotated
 
 from fastapi import APIRouter, UploadFile, Query, Depends, HTTPException
-from jwt import ExpiredSignatureError
 from starlette import status
 
-from app import TunkinRepository
 from app.core.config import LOGGER
 from app.models.request_model import TunkinRequest
 from app.models.response_model import User, ResponseBuilder, get_response_builder
 from app.repositories.sys_user import require_role
+from app.repositories.tunkin_repository import TunkinRepository, get_tunkin_repository
 
 router = APIRouter(
     prefix="/tunkin",
@@ -16,16 +15,14 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-repository = TunkinRepository()
-
 
 @router.get("/{periode}", summary="Data Tunkin")
 def upload_file(periode: str,
                 query: Annotated[TunkinRequest, Query()],
                 user: Annotated[User, Depends(require_role(["payrollprocess"]))],
-                response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)]):
+                response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
+                repository: Annotated[TunkinRepository, Depends(get_tunkin_repository)]):
     try:
-
         result = repository.fetch_page_data(periode, query)
         return response_builder.paginated(result)
     except HTTPException as e:
@@ -39,7 +36,8 @@ def upload_file(periode: str,
 @router.post("/upload", summary="Upload File Excel Tunkin")
 async def upload_file(file: UploadFile,
                       user: Annotated[User, Depends(require_role(["payrollprocess"]))],
-                      response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)]):
+                      response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
+                      repository: Annotated[TunkinRepository, Depends(get_tunkin_repository)]):
     try:
         result = await repository.upload(file)
         return response_builder.success(result)
