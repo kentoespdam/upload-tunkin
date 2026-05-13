@@ -1,9 +1,26 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
 [project]
 name = "upload-tunkin"
 version = "0.1.0"
-description = "Add your description here"
+description = "FastAPI-based file upload and KPI data management system"
 readme = "README.md"
 requires-python = ">=3.13"
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+authors = [
+    {name = "kentoespdam"},
+]
+keywords = ["fastapi", "kpi", "upload", "excel", "database", "api"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "fastapi[standard]>=0.121.2",
     "numpy>=2.3.5",
@@ -12,14 +29,26 @@ dependencies = [
     "pwdlib[argon2]>=0.3.0",
     "pyjwt>=2.10.1",
     "pymysql>=1.1.2",
-    "pymysql-pool==0.5.0",
+    "pymysql-pool>=0.5.0",
     "python-dotenv>=1.2.1",
     "pyyaml>=6.0.3",
     "sqids>=0.5.2",
     "uvicorn>=0.38.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/kentoespdam/upload-tunkin"
+Repository = "https://github.com/kentoespdam/upload-tunkin"
+Issues = "https://github.com/kentoespdam/upload-tunkin/issues"
+
 [dependency-groups]
 dev = [
     "pandas-stubs>=2.3.2.250926",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
