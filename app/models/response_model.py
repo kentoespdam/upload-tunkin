@@ -394,18 +394,20 @@ class ResponseBuilder:
             422: cls.unprocessable_entity,
         }
 
-    def from_http_exception(self, ex: HTTPException) -> JSONResponse:
+    @classmethod
+    def from_http_exception(cls, ex: HTTPException) -> JSONResponse:
         """Build response from HTTPException using the status-code registry."""
-        self._build_registry()
-        handler = self._STATUS_HANDLERS.get(
+        cls._build_registry()
+        handler = cls._STATUS_HANDLERS.get(
             ex.status_code,
-            ResponseBuilder.internal_server_error,  # fallback
+            cls.internal_server_error,  # fallback
         )
         return handler(errors=ex.detail, headers=ex.headers)
 
-    def from_exception(self, exc: Exception) -> JSONResponse:
+    @classmethod
+    def from_exception(cls, exc: Exception) -> JSONResponse:
         """Build response from exception"""
-        return ResponseBuilder.internal_server_error(
+        return cls.internal_server_error(
             errors=str(exc),
             message="An error occurred"
         )

@@ -35,6 +35,13 @@ class Config:
         self.sqids_alphabet = os.getenv('SQIDS_ALPHABET', '')
         self.sqids_min_length = int(os.getenv('SQIDS_MIN_LENGTH', 6))
 
+        # CORS
+        cors_origins = os.getenv('CORS_ORIGINS', '*')
+        self.cors_allow_origins = [o.strip() for o in cors_origins.split(',')]
+        self.cors_allow_methods = os.getenv('CORS_METHODS', '*')
+        self.cors_allow_headers = os.getenv('CORS_HEADERS', '*')
+        self.cors_allow_credentials = os.getenv('CORS_ALLOW_CREDENTIALS', 'false').lower() == 'true'
+
 
 class SqidsHelper:
     def __init__(self, config: Config = Config()):
