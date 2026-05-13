@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "upload_tunkin",
+  "project_id": "e156ef47-33c5-4e58-9d42-02802a293295"
+}
