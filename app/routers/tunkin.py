@@ -8,6 +8,9 @@ from app.models.request_model import TunkinRequest
 from app.models.response_model import User, ResponseBuilder, get_response_builder
 from app.core.security import require_role
 from app.repositories.tunkin_repository import TunkinRepository, get_tunkin_repository
+from app.repositories.kpi_repository import KPIRepository, get_kpi_repository
+from app.services.file_gate import FileGate, get_file_gate
+from app.services.kpi_sheet_parser import KPISheetParser, get_kpi_sheet_parser
 
 router = APIRouter(
     prefix="/tunkin",
@@ -34,13 +37,19 @@ def upload_file(periode: str,
 
 
 @router.post("/upload", summary="Upload File Excel Tunkin")
-async def upload_file(file: UploadFile,
-                      user: Annotated[User, Depends(require_role(["payrollprocess"]))],
-                      response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
-                      repository: Annotated[TunkinRepository, Depends(get_tunkin_repository)]):
+async def upload_file(
+    file: UploadFile,
+    user: Annotated[User, Depends(require_role(["payrollprocess"]))],
+    response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
+    file_gate: Annotated[FileGate, Depends(get_file_gate)],
+    parser: Annotated[KPISheetParser, Depends(get_kpi_sheet_parser)],
+    kpi_repo: Annotated[KPIRepository, Depends(get_kpi_repository)],
+):
     try:
-        result = await repository.upload(file)
-        return response_builder.success(result)
+        data = await file_gate.check(file)
+        records = parser.parse(data)
+        result = kpi_repo.upsert_batch(records)
+        return response_builder.success(result.model_dump())
     except HTTPException as e:
         if e.status_code == status.HTTP_400_BAD_REQUEST:
             return response_builder.bad_request(e.detail)
