@@ -38,8 +38,13 @@ class Config:
         # CORS
         cors_origins = os.getenv('CORS_ORIGINS', '*')
         self.cors_allow_origins = [o.strip() for o in cors_origins.split(',')]
-        self.cors_allow_methods = os.getenv('CORS_METHODS', '*')
-        self.cors_allow_headers = os.getenv('CORS_HEADERS', '*')
+
+        cors_methods = os.getenv('CORS_METHODS', '*')
+        self.cors_allow_methods = [m.strip() for m in cors_methods.split(',')]
+
+        cors_headers = os.getenv('CORS_HEADERS', '*')
+        self.cors_allow_headers = [h.strip() for h in cors_headers.split(',')]
+
         self.cors_allow_credentials = os.getenv('CORS_ALLOW_CREDENTIALS', 'false').lower() == 'true'
 
 
