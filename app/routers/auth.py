@@ -5,25 +5,25 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.params import Query
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt import ExpiredSignatureError, InvalidTokenError, DecodeError
+from starlette import status
 
 from app.core.config import Config, LOGGER
-from app.models.response_model import User, Token, BaseToken, RefreshTokenRequest
-from app.models.response_model import get_response_builder, ResponseBuilder
-from app.repositories.sys_user import SysUserRepository, TokenHelper, require_role
+from app.core.security import (
+    TokenIssuer, TokenVerifier,
+    get_token_issuer, get_token_verifier,
+    get_current_user_from_token,
+    get_sys_user_repository,
+)
+from app.models.response_model import (
+    User, Token, BaseToken, RefreshTokenRequest,
+    get_response_builder, ResponseBuilder,
+)
+from app.repositories.sys_user import SysUserRepository
 
 router = APIRouter(
     tags=["Authentication Endpoints"],
     responses={404: {"description": "Not found"}},
 )
-
-
-# Dependency injection
-def get_user_repository() -> SysUserRepository:
-    return SysUserRepository()
-
-
-def get_token_helper() -> TokenHelper:
-    return TokenHelper()
 
 
 def get_config() -> Config:
@@ -32,35 +32,42 @@ def get_config() -> Config:
 
 @router.post("/token", summary="Authenticate User and Get Tokens")
 def authenticate_user(
-        form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-        repository: Annotated[SysUserRepository, Depends(get_user_repository)],
-        token_helper: Annotated[TokenHelper, Depends(get_token_helper)],
-        config: Annotated[Config, Depends(get_config)],
-        response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    user_repo: Annotated[SysUserRepository, Depends(get_sys_user_repository)],
+    issuer: Annotated[TokenIssuer, Depends(get_token_issuer)],
+    config: Annotated[Config, Depends(get_config)],
+    response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
 ):
     # Validate client credentials
-    token_helper.validata_client(form_data.client_id, form_data.client_secret)
+    is_match_client_id = config.jwt_client_id == form_data.client_id
+    is_match_client_secret = config.jwt_client_secret == form_data.client_secret
+    if not is_match_client_id or not is_match_client_secret:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid client credentials",
+        )
+
     # Authenticate user
-    user = repository.authenticate(form_data)
+    user = user_repo.authenticate(form_data)
     if user.get("disabled", True):
         raise HTTPException(status_code=401, detail="Inactive user")
+
     try:
-        _access_token = token_helper.create_access_token(
+        _access_token = issuer.issue_access(
             user,
-            timedelta(minutes=config.jwt_access_token_expire_minutes)
+            timedelta(minutes=config.jwt_access_token_expire_minutes),
         )
-        _refresh_token = token_helper.create_refresh_token(
+        _refresh_token = issuer.issue_refresh(
             user,
-            timedelta(days=7)
+            timedelta(days=7),
         )
         token = Token(
             access_token=_access_token,
             refresh_token=_refresh_token,
             token_type="bearer",
-            expires_in=token_helper.config.jwt_access_token_expire_minutes * 60
+            expires_in=config.jwt_access_token_expire_minutes * 60,
         )
         return response_builder.created(data=token.model_dump())
-
     except HTTPException as e:
         return response_builder.from_http_exception(e)
     except Exception as e:
@@ -71,33 +78,33 @@ def authenticate_user(
 @router.post(
     "/refresh",
     summary="Refresh Access Token",
-    responses={
-        401: {"description": "Invalid or expired refresh token"},
-    }
+    responses={401: {"description": "Invalid or expired refresh token"}},
 )
 async def refresh_token(
-        req: RefreshTokenRequest,
-        repository: Annotated[SysUserRepository, Depends(get_user_repository)],
-        token_helper: Annotated[TokenHelper, Depends(get_token_helper)],
-        response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
+    req: RefreshTokenRequest,
+    verifier: Annotated[TokenVerifier, Depends(get_token_verifier)],
+    issuer: Annotated[TokenIssuer, Depends(get_token_issuer)],
+    config: Annotated[Config, Depends(get_config)],
+    user_repo: Annotated[SysUserRepository, Depends(get_sys_user_repository)],
+    response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
 ):
     try:
-        payload = token_helper.decode_token(req.token)
+        payload = verifier.verify(req.token)
         if payload.get("type") != "refresh_token":
             raise Exception("Invalid refresh token")
 
         username = payload.get("sub")
-        user = repository.get_user(username)
+        user = user_repo.get_user(username)
 
         if not user:
             raise Exception("Invalid refresh token")
 
-        new_access_token = token_helper.create_access_token(user)
+        new_access_token = issuer.issue_access(user)
 
         token = BaseToken(
             access_token=new_access_token,
             token_type="bearer",
-            expires_in=token_helper.config.jwt_access_token_expire_minutes * 60
+            expires_in=config.jwt_access_token_expire_minutes * 60,
         )
         return response_builder.ok(data=token.model_dump())
     except ExpiredSignatureError:
@@ -111,13 +118,11 @@ async def refresh_token(
 
 @router.get(
     "/me",
-    responses={
-        401: {"description": "Unauthorized"},
-        400: {"description": "Inactive user"},
-    })
+    responses={401: {"description": "Unauthorized"}, 400: {"description": "Inactive user"}},
+)
 async def read_users_me(
-        current_user: Annotated[User, Depends(require_role(["payrollprocess"]))],
-        response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
+    current_user: Annotated[User, Depends(get_current_user_from_token)],
+    response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
 ):
     try:
         return response_builder.ok(data=current_user.model_dump())
@@ -126,39 +131,27 @@ async def read_users_me(
         return response_builder.from_http_exception(e)
 
 
-@router.options(
-    "/validate",
-    summary="Validate user credentials",
-)
+@router.options("/validate", summary="Validate token")
 async def validate_token(
-        req: Annotated[RefreshTokenRequest, Query()],
-        token_helper: Annotated[TokenHelper, Depends(get_token_helper)],
-        response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
+    req: Annotated[RefreshTokenRequest, Query()],
+    verifier: Annotated[TokenVerifier, Depends(get_token_verifier)],
+    response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
 ):
     try:
-        payload = token_helper.decode_token(req.token)
+        payload = verifier.verify(req.token)
 
         content = {
             "valid": True,
             "username": payload.get("sub"),
             "role": payload.get("role"),
             "expires_at": payload.get("exp"),
-            "token_type": payload.get("type")
+            "token_type": payload.get("type"),
         }
         return response_builder.ok(data=content)
     except ExpiredSignatureError:
-        return response_builder.ok({
-            "valid": False,
-            "error": "Token has expired"
-        })
+        return response_builder.ok({"valid": False, "error": "Token has expired"})
     except (InvalidTokenError, DecodeError):
-        return response_builder.ok({
-            "valid": False,
-            "error": "Invalid token"
-        })
+        return response_builder.ok({"valid": False, "error": "Invalid token"})
     except Exception as e:
         LOGGER.error(f"Error validating token: {e}")
-        return response_builder.ok({
-            "valid": False,
-            "error": "Token validation error"
-        })
+        return response_builder.ok({"valid": False, "error": "Token validation error"})

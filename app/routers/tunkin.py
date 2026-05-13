@@ -6,7 +6,7 @@ from starlette import status
 from app.core.config import LOGGER
 from app.models.request_model import TunkinRequest
 from app.models.response_model import User, ResponseBuilder, get_response_builder
-from app.repositories.sys_user import require_role
+from app.core.security import require_role
 from app.repositories.tunkin_repository import TunkinRepository, get_tunkin_repository
 
 router = APIRouter(
