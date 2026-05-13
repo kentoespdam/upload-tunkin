@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Dict, Optional, Set
 
 from fastapi import HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
@@ -7,8 +7,10 @@ from starlette import status
 from app.core.config import Config, SqidsHelper, LOGGER
 from app.core.databases import DatabaseHelper
 
-INCORRECT_USERNAME_OR_PASSWORD = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                               detail="Incorrect username or password")
+INCORRECT_USERNAME_OR_PASSWORD = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Incorrect username or password",
+)
 
 
 class SysUserRepository:
@@ -29,19 +31,19 @@ class SysUserRepository:
         self.validate_password(auth_request.password, result['user_password'])
         return result
 
-    def get_user(self, username: str) -> Optional[Dict[str, Any]]:
-        query = f"""
+    def get_user(self, username: str) -> Optional[Dict]:
+        query = """
             SELECT
                 su.user_login AS username,
                 ep.emp_name AS full_name,
                 ep.emp_email AS email,
-                IF(em.emp_status =1, FALSE, TRUE) AS disabled,
+                IF(em.emp_status = 1, FALSE, TRUE) AS disabled,
                 su.user_role_id AS role,
                 su.user_password AS user_password
             FROM
                 sys_user AS su
                 INNER JOIN employee AS em ON su.user_emp_id = em.emp_id
-                INNER JOIN emp_profile AS ep ON em.emp_profile_id= ep.emp_profile_id
+                INNER JOIN emp_profile AS ep ON em.emp_profile_id = ep.emp_profile_id
             WHERE
                 su.user_login = %s
         """
@@ -50,7 +52,6 @@ class SysUserRepository:
             user_data = self.db_helper.fetchone(query, params)
             if not user_data:
                 return None
-
             if 'role' in user_data and user_data['role'] is not None:
                 user_data['role'] = self.sqids_helper.encode(user_data['role'])
             else:
@@ -72,5 +73,34 @@ class SysUserRepository:
 
 
 def get_sys_user_repository() -> SysUserRepository:
-    """Factory function for Depends injection."""
     return SysUserRepository()
+
+
+import pandas as pd
+
+
+class SysMenuRepository:
+    def __init__(self):
+        self.config = Config()
+        self.db_helper = DatabaseHelper()
+
+    def fetch_menus(self, role_id: int) -> pd.DataFrame:
+        query = """
+            SELECT
+                srm.role_id,
+                srm.menu_id,
+                sm.menu_code,
+                sm.menu_title
+            FROM
+                sys_role_menu AS srm
+                INNER JOIN sys_role AS sr ON srm.role_id = sr.role_id
+                INNER JOIN sys_menu AS sm ON srm.menu_id = sm.menu_id
+            WHERE
+                sr.role_id = %s
+        """
+        params = (role_id,)
+        return self.db_helper.fetch_data(query, params)
+
+
+def get_sys_menu_repository() -> SysMenuRepository:
+    return SysMenuRepository()

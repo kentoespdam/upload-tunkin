@@ -6,8 +6,8 @@ Run: uv run python test_kpi_sheet_parser.py
 """
 import io
 
-from app.services.kpi_sheet_parser import KPISheetParser
-from app.models.kpi import KPIRecord
+from app.tunkin.services import KPISheetParser
+from app.tunkin.schemas import KPIRecord
 
 
 def _make_excel_bytes(rows: list[dict]) -> bytes:
@@ -44,10 +44,11 @@ def test_valid_file_returns_records():
     assert len(records) == 2
     assert all(isinstance(r, KPIRecord) for r in records)
     assert records[0].periode == "002501"  # zfilled to 6
-    assert records[0].nipam == "12345678"
-    assert records[0].nominal == 500000
+    assert records[0].nipam == "012345678"  # zfill(9) → 9 chars
+    assert records[0].tunkin == 500000
     assert records[0].pph21_ter == 25000
     assert records[1].periode == "002501"
+    assert records[1].nipam == "087654321"  # zfill(9) → 9 chars
 
 
 def test_empty_file_raises():
@@ -85,7 +86,9 @@ def test_zfill_applied():
     ])
     records = parser.parse(data)
     assert records[0].periode == "000001"  # 6 chars
-    assert records[0].nipam == "00000012"   # 8 chars
+    assert records[0].nipam == "000000012"   # zfill(9) → 9 chars
+
+
 
 
 if __name__ == "__main__":

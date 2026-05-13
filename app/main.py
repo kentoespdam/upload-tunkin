@@ -5,7 +5,9 @@ from jwt import ExpiredSignatureError, PyJWTError
 from app.core.config import LOGGER, Config
 from app.core.cors import configure_cors
 from app.models.response_model import ResponseBuilder
-from app.routers import tunkin, auth
+from app.organization import router as organization_router
+from app.auth import router as auth_router
+from app.tunkin import router as tunkin_router
 
 app = FastAPI(
     title="Upload Tunkin API",
@@ -30,10 +32,18 @@ async def jwt_exception_handler(_request, exc: PyJWTError):
     return ResponseBuilder.unauthorized(message, headers={"WWW-Authenticate": "Bearer"})
 
 
+@app.exception_handler(Exception)
+async def generic_exception_handler(_request, exc: Exception):
+    """Catch-all for unexpected errors — logs and returns 500."""
+    LOGGER.error(f"Unhandled exception: {exc}")
+    return ResponseBuilder.from_exception(exc)
+
+
 @app.get("/")
 def index():
     return {"Hello": "World"}
 
 
-app.include_router(auth.router)
-app.include_router(tunkin.router)
+app.include_router(auth_router.router)
+app.include_router(tunkin_router.router)
+app.include_router(organization_router.router)

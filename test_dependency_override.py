@@ -5,8 +5,8 @@ a fake repository without monkey-patching.
 """
 from fastapi.testclient import TestClient
 from app.main import app
-from app.repositories.tunkin_repository import TunkinRepository, get_tunkin_repository
-from app.models.response_model import BasePageResponse
+from app.tunkin.repository import TunkinRepository, get_tunkin_repository
+from app.responses.schemas import BasePageResponse
 
 
 class FakeTunkinRepository(TunkinRepository):

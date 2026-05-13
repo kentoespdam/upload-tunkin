@@ -4,7 +4,7 @@ Run: uv run python test_file_gate.py
 """
 import io
 
-from app.services.file_gate import FileGate
+from app.tunkin.services import FileGate
 
 # Minimal UploadFile stand-in so we don't need FastAPI
 class FakeUploadFile:
@@ -67,7 +67,7 @@ def test_empty_filename_raises():
 
 def test_oversize_file_raises():
     fg = FileGate()
-    from app.services.file_gate import MAX_FILE_SIZE
+    from app.tunkin.services import MAX_FILE_SIZE
     big = b"x" * (MAX_FILE_SIZE + 1)
     import asyncio
     try:
