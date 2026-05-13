@@ -30,14 +30,13 @@ def get_config() -> Config:
     return Config()
 
 
-@router.post("/token", summary="Authenticate User and Get Tokens")
+@router.post("/token", summary="Authenticate User and Get Tokens", response_model=Token)
 def authenticate_user(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     user_repo: Annotated[SysUserRepository, Depends(get_sys_user_repository)],
     issuer: Annotated[TokenIssuer, Depends(get_token_issuer)],
     config: Annotated[Config, Depends(get_config)],
-    response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
-):
+) -> Token:
     # Validate client credentials
     is_match_client_id = config.jwt_client_id == form_data.client_id
     is_match_client_secret = config.jwt_client_secret == form_data.client_secret
@@ -61,23 +60,26 @@ def authenticate_user(
             user,
             timedelta(days=7),
         )
-        token = Token(
+        return Token(
             access_token=_access_token,
             refresh_token=_refresh_token,
             token_type="bearer",
             expires_in=config.jwt_access_token_expire_minutes * 60,
         )
-        return response_builder.created(data=token.model_dump())
-    except HTTPException as e:
-        return response_builder.from_http_exception(e)
+    except HTTPException:
+        raise
     except Exception as e:
         LOGGER.error(f"Error creating tokens: {e}")
-        return response_builder.from_exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not create tokens",
+        )
 
 
 @router.post(
     "/refresh",
     summary="Refresh Access Token",
+    response_model=BaseToken,
     responses={401: {"description": "Invalid or expired refresh token"}},
 )
 async def refresh_token(
@@ -86,34 +88,34 @@ async def refresh_token(
     issuer: Annotated[TokenIssuer, Depends(get_token_issuer)],
     config: Annotated[Config, Depends(get_config)],
     user_repo: Annotated[SysUserRepository, Depends(get_sys_user_repository)],
-    response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
-):
+) -> BaseToken:
     try:
         payload = verifier.verify(req.token)
         if payload.get("type") != "refresh_token":
-            raise Exception("Invalid refresh token")
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
 
         username = payload.get("sub")
         user = user_repo.get_user(username)
 
         if not user:
-            raise Exception("Invalid refresh token")
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
 
         new_access_token = issuer.issue_access(user)
 
-        token = BaseToken(
+        return BaseToken(
             access_token=new_access_token,
             token_type="bearer",
             expires_in=config.jwt_access_token_expire_minutes * 60,
         )
-        return response_builder.ok(data=token.model_dump())
     except ExpiredSignatureError:
-        return response_builder.unauthorized("Refresh token has expired")
+        raise HTTPException(status_code=401, detail="Refresh token has expired")
     except (InvalidTokenError, DecodeError):
-        return response_builder.unauthorized("Invalid refresh token")
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    except HTTPException:
+        raise
     except Exception as e:
         LOGGER.error(f"Error refreshing token: {e}")
-        return response_builder.unauthorized("Could not refresh token")
+        raise HTTPException(status_code=401, detail="Could not refresh token")
 
 
 @router.get(
