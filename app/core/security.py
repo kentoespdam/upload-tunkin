@@ -14,9 +14,11 @@ from fastapi.security import OAuth2PasswordBearer
 from jwt import ExpiredSignatureError, InvalidTokenError, DecodeError
 from starlette import status
 
+from app.auth.menu_lookup import DBMenuLookup
+from app.auth.permission_checker import PermissionChecker
 from app.core.config import Config, SqidsHelper, LOGGER
+from app.core.databases import DatabaseHelper
 from app.models.response_model import User, TokenPayload
-from app.repositories.sys_menu import SysMenuRepository, get_sys_menu_repository
 from app.repositories.sys_user import SysUserRepository, get_sys_user_repository
 
 
@@ -110,6 +112,16 @@ def get_token_verifier() -> TokenVerifier:
     return TokenVerifier(Config())
 
 
+def get_db_menu_lookup() -> DBMenuLookup:
+    return DBMenuLookup(DatabaseHelper())
+
+
+def get_permission_checker(
+    menu_lookup: Annotated[DBMenuLookup, Depends(get_db_menu_lookup)],
+) -> PermissionChecker:
+    return PermissionChecker(menu_lookup)
+
+
 async def get_current_user_from_token(
     token: Annotated[str, Depends(oauth2_scheme)],
     verifier: Annotated[TokenVerifier, Depends(get_token_verifier)],
@@ -142,24 +154,17 @@ async def get_current_user_from_token(
         raise
 
 
-def require_role(required_role: list[str]):
-    """Dependency factory: require the current user to have a specific role."""
+def require_role(required_menu_codes: list[str]):
+    """Dependency factory: require the current user to have at least one of the menu codes."""
 
     def role_checker(
         current_user: Annotated[User, Depends(get_current_user_from_token)],
-        menu_repository: Annotated[SysMenuRepository, Depends(get_sys_menu_repository)],
+        permission_checker: Annotated[PermissionChecker, Depends(get_permission_checker)],
     ) -> User:
-        if current_user.disabled:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Inactive user",
-            )
         sqids_helper = SqidsHelper()
-        user_role = current_user.role
-        user_role = sqids_helper.decode(user_role)
-        menus = menu_repository.fetch_menus(user_role)
+        role_id = sqids_helper.decode(current_user.role)
 
-        if menus[menus["menu_code"].isin(required_role)].empty:
+        if not permission_checker.allows(role_id, required_menu_codes):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",
@@ -170,14 +175,9 @@ def require_role(required_role: list[str]):
 
 
 def require_any_role(required_roles: list):
-    """Dependency factory: require any one role from the list."""
+    """Dependency factory: require the user's role string to match one of the given values."""
 
     def role_checker(current_user: User = Depends(get_current_user_from_token)) -> User:
-        if current_user.disabled:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Inactive user",
-            )
         if current_user.role not in required_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

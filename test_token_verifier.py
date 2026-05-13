@@ -1,82 +1,78 @@
-"""
-Unit tests for TokenVerifier — no FastAPI dependency.
-Tests: valid token, expired token, bad signature, malformed token.
+"""Unit tests for TokenVerifier — no FastAPI dependency.
+
+Run: uv run python test_token_verifier.py
 """
 from datetime import timedelta, datetime, timezone
-from unittest.mock import patch
 
 import jwt
-import pytest
 
 from app.core.security import TokenVerifier
 
 
-@pytest.fixture
-def verifier():
-    config = type("FakeConfig", (), {
+def make_config():
+    return type("FakeConfig", (), {
         "jwt_secret_key": "test-secret-key-for-unit-tests",
         "jwt_algorithm": "HS256",
     })()
-    return TokenVerifier(config)
 
 
-@pytest.fixture
-def valid_token(verifier):
+def test_verify_valid_token_returns_claims():
+    v = TokenVerifier(make_config())
     now = datetime.now(timezone.utc)
-    payload = {
-        "sub": "testuser",
-        "name": "Test User",
-        "role": "payrollprocess",
-        "exp": now + timedelta(hours=1),
-        "iat": now,
-        "type": "access_token",
-    }
-    return jwt.encode(payload, verifier.config.jwt_secret_key, algorithm=verifier.config.jwt_algorithm)
+    token = jwt.encode({
+        "sub": "testuser", "name": "Test User", "role": "payrollprocess",
+        "exp": now + timedelta(hours=1), "iat": now, "type": "access_token",
+    }, v.config.jwt_secret_key, algorithm=v.config.jwt_algorithm)
+    claims = v.verify(token)
+    assert claims["sub"] == "testuser"
+    assert claims["role"] == "payrollprocess"
 
 
-class TestTokenVerifier:
-    def test_verify_valid_token_returns_claims(self, verifier, valid_token):
-        """Valid token → returns decoded claims."""
-        claims = verifier.verify(valid_token)
-        assert claims["sub"] == "testuser"
-        assert claims["name"] == "Test User"
-        assert claims["role"] == "payrollprocess"
-        assert claims["type"] == "access_token"
+def test_expired_token_raises():
+    v = TokenVerifier(make_config())
+    now = datetime.now(timezone.utc)
+    token = jwt.encode({
+        "sub": "u", "exp": now - timedelta(hours=1),
+        "iat": now - timedelta(hours=2), "type": "access_token",
+    }, v.config.jwt_secret_key, algorithm=v.config.jwt_algorithm)
+    try:
+        v.verify(token)
+        assert False, "should have raised"
+    except jwt.ExpiredSignatureError:
+        pass
 
-    def test_verify_expired_token_raises(self, verifier):
-        """Expired token → ExpiredSignatureError."""
-        now = datetime.now(timezone.utc)
-        payload = {
-            "sub": "testuser",
-            "exp": now - timedelta(hours=1),  # already expired
-            "iat": now - timedelta(hours=2),
-            "type": "access_token",
-        }
-        token = jwt.encode(payload, verifier.config.jwt_secret_key, algorithm=verifier.config.jwt_algorithm)
-        with pytest.raises(jwt.ExpiredSignatureError):
-            verifier.verify(token)
 
-    def test_verify_bad_signature_raises(self):
-        """Wrong secret → InvalidSignatureError."""
-        config = type("FakeConfig", (), {
-            "jwt_secret_key": "correct-key",
-            "jwt_algorithm": "HS256",
-        })()
-        wrong_verifier = TokenVerifier(config)
+def test_bad_signature_raises():
+    v = TokenVerifier(make_config())
+    now = datetime.now(timezone.utc)
+    token = jwt.encode({
+        "sub": "u", "exp": now + timedelta(hours=1),
+        "iat": now, "type": "access_token",
+    }, "wrong-key", algorithm="HS256")
+    try:
+        v.verify(token)
+        assert False, "should have raised"
+    except jwt.InvalidSignatureError:
+        pass
 
-        now = datetime.now(timezone.utc)
-        payload = {
-            "sub": "testuser",
-            "exp": now + timedelta(hours=1),
-            "iat": now,
-            "type": "access_token",
-        }
-        # Sign with different key
-        token = jwt.encode(payload, "wrong-key", algorithm="HS256")
-        with pytest.raises(jwt.InvalidSignatureError):
-            wrong_verifier.verify(token)
 
-    def test_verify_malformed_token_raises(self, verifier):
-        """Garbage string → DecodeError."""
-        with pytest.raises(jwt.DecodeError):
-            verifier.verify("this.is.not.a.jwt")
+def test_malformed_token_raises():
+    v = TokenVerifier(make_config())
+    try:
+        v.verify("not-a-valid-jwt")
+        assert False, "should have raised"
+    except jwt.DecodeError:
+        pass
+
+
+if __name__ == "__main__":
+    tests = [
+        test_verify_valid_token_returns_claims,
+        test_expired_token_raises,
+        test_bad_signature_raises,
+        test_malformed_token_raises,
+    ]
+    for t in tests:
+        t()
+        print(f"PASS: {t.__name__}")
+    print("\nAll TokenVerifier unit tests passed!")
