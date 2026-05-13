@@ -1,5 +1,5 @@
-from .tunkin_repository import TunkinRepository, get_tunkin_repository
 from .sys_user import SysUserRepository, get_sys_user_repository
+from .tunkin_repository import TunkinRepository, get_tunkin_repository
 
 __all__ = [
     "TunkinRepository",

@@ -54,16 +54,20 @@ Key environment variables:
 
 Full reference in [`.env.example`](.env.example).
 
-### 3. Run
+### Run
 
-**Development:**
+After `uv sync`, use the CLI scripts:
+
 ```bash
-uv run uvicorn app.main:app --reload --port 8000
+uv run dev     # Development server with auto-reload (port 8000)
+uv run start   # Production server (port 80)
 ```
 
-**Production:**
+Or run uvicorn directly:
+
 ```bash
-uv run uvicorn app.main:app --host 0.0.0.0 --port 80
+uv run uvicorn app.main:app --reload --port 8000  # Development
+uv run uvicorn app.main:app --host 0.0.0.0 --port 80  # Production
 ```
 
 ### Docker
@@ -174,7 +178,7 @@ All config via environment variables or `.env` file. See [`.env.example`](.env.e
 - `sys_user` — User login, role mapping
 - `employee` — Employee master data
 - `sys_role_menu` — Role-to-menu permissions
-- `salary_kpi` (configurable) — KPI records with periode, nipam, nominal
+- `salary_kpi` (configurable) — KPI records with periode, nipam, tunkin, pph21_ter
 - `sys_menu` — Menu codes for permission checks
 
 ## Security

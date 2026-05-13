@@ -19,7 +19,7 @@ def _make_excel_bytes(rows: list[dict]) -> bytes:
     ws = wb.active
 
     # Header row
-    headers = list(rows[0].keys()) if rows else ["NO", "PERIODE", "NIPAM", "JUMLAH PENERIMAAN"]
+    headers = list(rows[0].keys()) if rows else ["NO", "PERIODE", "NIPAM", "JUMLAH PENERIMAAN", "PPH21 TER"]
     for col_idx, h in enumerate(headers, 1):
         ws[f"{get_column_letter(col_idx)}1"] = h
 
@@ -37,8 +37,8 @@ def _make_excel_bytes(rows: list[dict]) -> bytes:
 def test_valid_file_returns_records():
     parser = KPISheetParser()
     data = _make_excel_bytes([
-        {"NO": 1, "PERIODE": 2501, "NIPAM": 12345678, "JUMLAH PENERIMAAN": 500000},
-        {"NO": 2, "PERIODE": 2501, "NIPAM": 87654321, "JUMLAH PENERIMAAN": 750000},
+        {"NO": 1, "PERIODE": 2501, "NIPAM": 12345678, "JUMLAH PENERIMAAN": 500000, "PPH21 TER": 25000},
+        {"NO": 2, "PERIODE": 2501, "NIPAM": 87654321, "JUMLAH PENERIMAAN": 750000, "PPH21 TER": 37500},
     ])
     records = parser.parse(data)
     assert len(records) == 2
@@ -46,6 +46,7 @@ def test_valid_file_returns_records():
     assert records[0].periode == "002501"  # zfilled to 6
     assert records[0].nipam == "12345678"
     assert records[0].nominal == 500000
+    assert records[0].pph21_ter == 25000
     assert records[1].periode == "002501"
 
 
@@ -80,7 +81,7 @@ def test_missing_column_raises():
 def test_zfill_applied():
     parser = KPISheetParser()
     data = _make_excel_bytes([
-        {"NO": 1, "PERIODE": 1, "NIPAM": 12, "JUMLAH PENERIMAAN": 100},
+        {"NO": 1, "PERIODE": 1, "NIPAM": 12, "JUMLAH PENERIMAAN": 100, "PPH21 TER": 5},
     ])
     records = parser.parse(data)
     assert records[0].periode == "000001"  # 6 chars

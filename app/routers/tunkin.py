@@ -4,11 +4,11 @@ from fastapi import APIRouter, UploadFile, Query, Depends, HTTPException
 from starlette import status
 
 from app.core.config import LOGGER
+from app.core.security import require_role
 from app.models.request_model import TunkinRequest
 from app.models.response_model import User, ResponseBuilder, get_response_builder
-from app.core.security import require_role
-from app.repositories.tunkin_repository import TunkinRepository, get_tunkin_repository
 from app.repositories.kpi_repository import KPIRepository, get_kpi_repository
+from app.repositories.tunkin_repository import TunkinRepository, get_tunkin_repository
 from app.services.file_gate import FileGate, get_file_gate
 from app.services.kpi_sheet_parser import KPISheetParser, get_kpi_sheet_parser
 

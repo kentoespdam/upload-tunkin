@@ -11,14 +11,13 @@ from typing import Optional, Annotated, Dict, Any
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from jwt import ExpiredSignatureError, InvalidTokenError, DecodeError
 from starlette import status
 
 from app.auth.menu_lookup import DBMenuLookup
 from app.auth.permission_checker import PermissionChecker
 from app.core.config import Config, SqidsHelper, LOGGER
 from app.core.databases import DatabaseHelper
-from app.models.response_model import User, TokenPayload
+from app.models.response_model import User
 from app.repositories.sys_user import SysUserRepository, get_sys_user_repository
 
 

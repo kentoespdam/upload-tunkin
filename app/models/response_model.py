@@ -1,7 +1,7 @@
 import uuid
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Optional, Union, List, Dict, Any, Hashable
+from typing import Callable, Optional, Union, List, Dict, Any, Hashable
 
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -379,7 +379,7 @@ class ResponseBuilder:
 
     # Single registry mapping status codes to builder methods.
     # All dispatchers (global handler, from_http_exception) consult this table.
-    _STATUS_HANDLERS: dict[int, staticmethod] = {}
+    _STATUS_HANDLERS: dict[int, Callable[..., JSONResponse]] = {}
 
     @classmethod
     def _build_registry(cls):
@@ -430,5 +430,5 @@ class TunkinModel(BaseModel):
     jabatan: str
     organisasi: str
     status_pegawai: str
-    nominal: int
+    tunkin: int
     ter: int

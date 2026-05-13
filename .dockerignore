@@ -1,7 +1,34 @@
-.venv
-logs/*.log
-/tests/
+# Version control
 .git
 .gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+.python-version
+
+# Environment
+.env
+.env.example
+
+# Logs
+logs/*.log
+
+# Tests (not needed in production)
+/tests/
+test_*.py
+
+# Dev/metadata files
+AGENTS.md
+CLAUDE.md
+EXECUTION_ORDER.md
+.beads/
+.claude/
+tasks/
+
+# Docker
 Dockerfile
-docker-compose.yml
+docker-compose.yaml
+.dockerignore

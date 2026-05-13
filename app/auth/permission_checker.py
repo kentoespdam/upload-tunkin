@@ -1,5 +1,5 @@
 """PermissionChecker — pure authorization logic, no FastAPI."""
-from typing import Set, List
+from typing import List
 
 from app.auth.menu_lookup import MenuLookup
 

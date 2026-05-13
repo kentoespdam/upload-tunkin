@@ -20,11 +20,11 @@ class KPIRepository:
             return UpsertResult(affected_rows=0)
 
         query = f"""
-            INSERT INTO {self._config.kpi_table_name} (periode, nipam, nominal)
-            VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE nominal = VALUES(nominal)
+            INSERT INTO {self._config.kpi_table_name} (periode, nipam, tunkin, pph21_ter)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE tunkin = VALUES(tunkin)
         """
-        params = [(r.periode, r.nipam, r.nominal) for r in records]
+        params = [(r.periode, r.nipam, r.tunkin, r.pph21_ter) for r in records]
         affected = self._db_helper.save_update(query, params)
         return UpsertResult(affected_rows=affected or 0)
 

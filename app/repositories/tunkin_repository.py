@@ -1,8 +1,6 @@
-import io
 from typing import Optional
 
-import pandas as pd
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile
 
 from app.core.config import Config
 from app.core.databases import DatabaseHelper
@@ -39,7 +37,8 @@ class TunkinRepository:
                 po.pos_name AS jabatan, 
                 org.org_name AS organisasi, 
                 sef.text AS status_pegawai,
-                kpi.nominal AS nominal
+                kpi.tunkin AS tunkin,
+                kpi.pph21_ter AS pph21_ter
             FROM {self.config.kpi_table_name} kpi
             INNER JOIN employee AS em ON kpi.nipam = em.emp_code
             INNER JOIN emp_profile AS ep ON em.emp_profile_id = ep.emp_profile_id
@@ -48,10 +47,11 @@ class TunkinRepository:
             INNER JOIN sys_reference AS sef ON sef.`code` = 'emp_flag' 
                 AND em.emp_flag = sef.`value` 
             WHERE kpi.periode = %s
-            ORDER BY org.org_level , po.pos_level
         """
         params = (periode,)
         if req.nipam:
             query += " AND nipam = %s"
             params += (req.nipam,)
+
+        query +="ORDER BY org.org_level , po.pos_level"
         return self.db_helper.fetch_page(query, params, req.page, req.size)

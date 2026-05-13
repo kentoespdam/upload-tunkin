@@ -3,7 +3,6 @@
 No pandas or DB dependencies. Raises HTTPException on validation
 failure to match the exact error shape of the original upload flow.
 """
-import io
 
 from fastapi import UploadFile, HTTPException
 
@@ -19,7 +18,8 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MiB
 class FileGate:
     """Validates file metadata and returns raw bytes for downstream parsing."""
 
-    async def check(self, upload_file: UploadFile) -> bytes:
+    @staticmethod
+    async def check(upload_file: UploadFile) -> bytes:
         """Validate extension / MIME / size and return bytes.
 
         Raises HTTPException with the same status + message as the

@@ -9,19 +9,20 @@ from fastapi import HTTPException
 
 from app.models.kpi import KPIRecord
 
-
 TEMPLATE_COLUMNS = [
     "NO",
     "PERIODE",
     "NIPAM",
     "JUMLAH PENERIMAAN",
+    "PPH21 TER"
 ]
 
 
 class KPISheetParser:
     """Parses KPI Excel data from raw bytes into validated records."""
 
-    def parse(self, data: bytes, column_spec: list[str] | None = None) -> list[KPIRecord]:
+    @staticmethod
+    def parse(data: bytes, column_spec: list[str] | None = None) -> list[KPIRecord]:
         """Read Excel bytes, validate shape, return list of KPIRecord."""
         required = column_spec or TEMPLATE_COLUMNS
         file_like = io.BytesIO(data)
@@ -45,7 +46,7 @@ class KPISheetParser:
                 )
 
         df["PERIODE"] = df["PERIODE"].astype(str).str.zfill(6)
-        df["NIPAM"] = df["NIPAM"].astype(str).str.zfill(8)
+        df["NIPAM"] = df["NIPAM"].astype(str).str.zfill(9)
 
         records: list[KPIRecord] = []
         for _, row in df.iterrows():
@@ -53,7 +54,8 @@ class KPISheetParser:
                 KPIRecord(
                     periode=str(row["PERIODE"]),
                     nipam=str(row["NIPAM"]),
-                    nominal=int(row["JUMLAH PENERIMAAN"]),
+                    tunkin=int(row["JUMLAH PENERIMAAN"]),
+                    pph21_ter=int(row["PPH21 TER"])
                 )
             )
 
