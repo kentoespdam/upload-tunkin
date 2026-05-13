@@ -1,3 +1,9 @@
+"""Tunkin and KPI repositories — consolidated in one file.
+
+TunkinRepository.fetch_page_data still holds the JOIN to organization
+(ADR-0001: decision-conscious duplication).
+"""
+
 from typing import Optional
 
 from fastapi import UploadFile
@@ -14,8 +20,9 @@ TEMPLATE_COLUMN = [
 ]
 
 
+# ── Tunkin Repository ─────────────────────────────────────────
+
 def get_tunkin_repository() -> "TunkinRepository":
-    """Factory function to create TunkinRepository instance."""
     return TunkinRepository()
 
 
@@ -24,10 +31,10 @@ class TunkinRepository:
         self.config = config
         self.file: Optional[UploadFile] = None
         self._allowed_extension = {'xlsx', 'xls'}
-        self._max_file_size = 50 * 1024 * 1024  # 50MB
+        self._max_file_size = 50 * 1024 * 1024
         self.db_helper = db_helper
 
-    def fetch_page_data(self, periode: str, req: TunkinRequest,):
+    def fetch_page_data(self, periode: str, req: TunkinRequest):
         query = f"""
             SELECT
                 kpi.id AS id,
@@ -53,5 +60,33 @@ class TunkinRepository:
             query += " AND nipam = %s"
             params += (req.nipam,)
 
-        query +="ORDER BY org.org_level , po.pos_level"
+        query += " ORDER BY org.org_level, po.pos_level"
         return self.db_helper.fetch_page(query, params, req.page, req.size)
+
+
+# ── KPI Repository ────────────────────────────────────────────
+
+class KPIRepository:
+    """Repository for KPI table operations."""
+
+    def __init__(self, config: Config, db_helper: DatabaseHelper):
+        self._config = config
+        self._db_helper = db_helper
+
+    def upsert_batch(self, records: list["KPIRecord"]) -> "UpsertResult":
+        from app.tunkin.schemas import KPIRecord, UpsertResult
+        if not records:
+            return UpsertResult(affected_rows=0)
+
+        query = f"""
+            INSERT INTO {self._config.kpi_table_name} (periode, nipam, tunkin, pph21_ter)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE tunkin = VALUES(tunkin)
+        """
+        params = [(r.periode, r.nipam, r.tunkin, r.pph21_ter) for r in records]
+        affected = self._db_helper.save_update(query, params)
+        return UpsertResult(affected_rows=affected or 0)
+
+
+def get_kpi_repository() -> KPIRepository:
+    return KPIRepository(Config(), DatabaseHelper())

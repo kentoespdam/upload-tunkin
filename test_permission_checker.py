@@ -2,8 +2,7 @@
 
 Run: uv run python test_permission_checker.py
 """
-from app.auth.menu_lookup import InMemoryMenuLookup
-from app.auth.permission_checker import PermissionChecker
+from app.auth.permissions import InMemoryMenuLookup, PermissionChecker
 
 
 def make_checker(data: dict = None):

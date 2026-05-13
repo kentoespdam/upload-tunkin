@@ -6,8 +6,8 @@ Run: uv run python test_kpi_repository.py
 """
 from unittest.mock import MagicMock
 
-from app.repositories.kpi_repository import KPIRepository
-from app.models.kpi import KPIRecord, UpsertResult
+from app.tunkin.repository import KPIRepository
+from app.tunkin.schemas import KPIRecord, UpsertResult
 
 
 class MockDBHelper:
@@ -26,8 +26,8 @@ def test_upsert_batch_correct_query():
     repo = KPIRepository(config, db)
 
     records = [
-        KPIRecord(periode="002501", nipam="12345678", nominal=500000),
-        KPIRecord(periode="002501", nipam="87654321", nominal=750000),
+        KPIRecord(periode="002501", nipam="12345678", tunkin=500000, pph21_ter=25000),
+        KPIRecord(periode="002501", nipam="87654321", tunkin=750000, pph21_ter=37500),
     ]
     result = repo.upsert_batch(records)
 
@@ -38,7 +38,7 @@ def test_upsert_batch_correct_query():
     query, params = db.called_with
     assert "INSERT INTO tunkin_kpi" in query
     assert "ON DUPLICATE KEY UPDATE" in query
-    assert params == [("002501", "12345678", 500000), ("002501", "87654321", 750000)]
+    assert params == [("002501", "12345678", 500000, 25000), ("002501", "87654321", 750000, 37500)]
 
 
 def test_upsert_batch_empty_list():
@@ -57,7 +57,7 @@ def test_upsert_batch_uses_table_name():
     config.kpi_table_name = "some_other_table"
     repo = KPIRepository(config, db)
 
-    repo.upsert_batch([KPIRecord(periode="000001", nipam="00000001", nominal=100)])
+    repo.upsert_batch([KPIRecord(periode="000001", nipam="00000001", tunkin=100, pph21_ter=5)])
     query, _ = db.called_with
     assert "some_other_table" in query
 

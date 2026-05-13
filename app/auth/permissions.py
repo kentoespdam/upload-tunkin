@@ -1,6 +1,9 @@
-"""Menu lookup interface and adapters — no FastAPI dependency."""
+"""Permission and menu lookup logic — no FastAPI dependencies."""
+
 from abc import ABC, abstractmethod
 from typing import Set
+
+from app.core.databases import DatabaseHelper
 
 
 class MenuLookup(ABC):
@@ -15,7 +18,7 @@ class MenuLookup(ABC):
 class DBMenuLookup(MenuLookup):
     """Menu lookup backed by the sys_role_menu database table."""
 
-    def __init__(self, db_helper):
+    def __init__(self, db_helper: DatabaseHelper):
         self._db_helper = db_helper
 
     def menu_codes_for(self, role_id: int) -> Set[str]:
@@ -40,3 +43,22 @@ class InMemoryMenuLookup(MenuLookup):
 
     def menu_codes_for(self, role_id: int) -> Set[str]:
         return self._data.get(role_id, set())
+
+
+class PermissionChecker:
+    """Checks whether a role grants access to one or more required menu codes."""
+
+    def __init__(self, menu_lookup: MenuLookup):
+        self._menu_lookup = menu_lookup
+
+    def allows(self, role_id: int, required_menu_codes: list[str]) -> bool:
+        """Return True if the role grants ALL required menu codes.
+        
+        Semantics: require_role(["payrollprocess"]) means the user must have
+        the "payrollprocess" menu code — at least one match.
+        The old implementation used DataFrame.isin() which checks for ANY match.
+        """
+        if not required_menu_codes:
+            return True
+        granted = self._menu_lookup.menu_codes_for(role_id)
+        return any(code in granted for code in required_menu_codes)

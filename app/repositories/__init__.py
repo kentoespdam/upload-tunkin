@@ -1,9 +1,16 @@
-from .sys_user import SysUserRepository, get_sys_user_repository
-from .tunkin_repository import TunkinRepository, get_tunkin_repository
+"""Repositories package — legacy shim (kept for now for backward compat).
+
+All repositories have moved to their respective domain modules:
+- app/tunkin/repository.py (TunkinRepository, KPIRepository)
+- app/auth/repository.py (SysUserRepository, SysMenuRepository)
+"""
+
+# Legacy re-exports
+from app.tunkin.repository import TunkinRepository, get_tunkin_repository, KPIRepository, get_kpi_repository
 
 __all__ = [
     "TunkinRepository",
     "get_tunkin_repository",
-    "SysUserRepository",
-    "get_sys_user_repository",
+    "KPIRepository",
+    "get_kpi_repository",
 ]

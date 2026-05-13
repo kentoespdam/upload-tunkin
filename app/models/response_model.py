@@ -1,434 +1,54 @@
-import uuid
-from collections.abc import Mapping
-from datetime import datetime
-from typing import Callable, Optional, Union, List, Dict, Any, Hashable
-
-from fastapi import HTTPException
-from pydantic import BaseModel
-from starlette.responses import JSONResponse
-
-from app.core.config import SqidsHelper
-
 """
-JWT Model
+Shim module — re-exports from app/responses/ for backward compatibility.
+
+Will be cleaned up after all routers have migrated to domain modules.
 """
 
+# Re-export all schemas (pure Pydantic types)
+from app.responses.schemas import (  # noqa: F401
+    AuthRequest,
+    BasePageResponse,
+    BaseResponse,
+    BaseToken,
+    PageResponse,
+    RefreshTokenRequest,
+    Token,
+    TokenPayload,
+    TunkinModel,
+    User,
+    UserInDb,
+)
 
-class AuthRequest(BaseModel):
-    username: str
-    password: str
+# Re-export builder
+from app.responses.builder import ResponseBuilder, get_response_builder  # noqa: F401
 
+# Re-export error utilities
+from app.responses.errors import (  # noqa: F401
+    CustomException,
+    bad_request,
+    conflict,
+    forbidden,
+    from_exception,
+    from_http_exception,
+    internal_server_error,
+    not_found,
+    unauthorized,
+    unprocessable_entity,
+    validation_error,
+)
 
-class BaseToken(BaseModel):
-    access_token: str
-    token_type: str
-    expires_in: int
-
-
-class Token(BaseToken):
-    refresh_token: str
-
-
-class TokenPayload(BaseModel):
-    username: Optional[str] = None
-
-
-class User(BaseModel):
-    username: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
-    role: Optional[str] = None
-    disabled: Optional[bool] = None
-
-
-class UserInDb(User):
-    hashed_password: str
-
-
-class RefreshTokenRequest(BaseModel):
-    token: str
-
-
-""" Common Response Model """
-
-
-class BaseResponse(BaseModel):
-    status: int
-    data: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None
-    errors: Optional[Union[str, List[str]]] = None
-    message: Optional[str] = None
-    timestamp: str = None
-    request_id: Optional[str] = None
-
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
-
-class BasePageResponse(BaseModel):
-    content: List[Dict[Union[str, Hashable], Any]]
-    total: int
-    is_first: bool
-    is_last: bool
-    page: int
-    page_size: int
-    total_pages: int
-
-
-class PageResponse(BaseResponse):
-    data: BasePageResponse
-
-
-class ResponseBuilder:
-    """Enhanced response builder with consistent API response format"""
-
-    # Common HTTP status codes
-    HTTP_200_OK = 200
-    HTTP_201_CREATED = 201
-    HTTP_204_NO_CONTENT = 204
-    HTTP_400_BAD_REQUEST = 400
-    HTTP_401_UNAUTHORIZED = 401
-    HTTP_403_FORBIDDEN = 403
-    HTTP_404_NOT_FOUND = 404
-    HTTP_409_CONFLICT = 409
-    HTTP_422_UNPROCESSABLE_ENTITY = 422
-    HTTP_429_TOO_MANY_REQUESTS = 429
-    HTTP_500_INTERNAL_SERVER_ERROR = 500
-    HTTP_503_SERVICE_UNAVAILABLE = 503
-
-    @staticmethod
-    def _generate_request_id() -> str:
-        """Generate unique request ID for tracing"""
-        return str(uuid.uuid4())
-
-    @staticmethod
-    def _get_timestamp() -> str:
-        """Get current timestamp in ISO format"""
-        return datetime.now().isoformat()
-
-    @staticmethod
-    def success(
-            data: Optional[Union[List[Dict[str, Any]], Dict[str, Any], BasePageResponse]] = None,
-            status: int = 200,
-            message: Optional[str] = None,
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """
-        Build success response
-
-        Args:
-            status: HTTP status code
-            data: Response data
-            message: Success message
-            headers: Additional headers
-            request_id: Request ID for tracing
-        """
-        content = BaseResponse(
-            status=status,
-            data=data,
-            errors=None,
-            message=message,
-            timestamp=ResponseBuilder._get_timestamp(),
-            request_id=request_id or ResponseBuilder._generate_request_id()
-        )
-
-        # Set default headers
-        default_headers = {
-            "Content-Type": "application/json",
-            "X-Request-ID": content.request_id
-        }
-        if headers:
-            default_headers.update(headers)
-
-        return JSONResponse(
-            status_code=status,
-            content=content.model_dump(exclude_none=True),
-            headers=default_headers
-        )
-
-    @staticmethod
-    def created(
-            data: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
-            message: str = "Resource created successfully",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """201 Created response"""
-        return ResponseBuilder.success(
-            status=ResponseBuilder.HTTP_201_CREATED,
-            data=data,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def ok(
-            data: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
-            message: str = "Request successful",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """200 OK response"""
-        return ResponseBuilder.success(
-            status=ResponseBuilder.HTTP_200_OK,
-            data=data,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def no_content(
-            message: str = "No content",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """204 No Content response"""
-        return ResponseBuilder.success(
-            status=ResponseBuilder.HTTP_204_NO_CONTENT,
-            data=None,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def paginated(
-            data: BasePageResponse,
-            message: str = "Paginated data retrieved successfully",
-            headers: Optional[Mapping[str, str]] = None) -> JSONResponse:
-        # Encode IDs at the HTTP edge (deterministic, not in data layer)
-        sqids_helper = SqidsHelper()
-        for item in data.content:
-            if "id" in item:
-                item["id"] = sqids_helper.encode(item["id"])
-
-        default_headers = {
-            "Content-Type": "application/json",
-            "X-Request-ID": ResponseBuilder._generate_request_id()
-        }
-        if headers:
-            default_headers.update(headers)
-
-        return ResponseBuilder.success(
-            status=ResponseBuilder.HTTP_200_OK,
-            data=data.model_dump(),
-            message=message,
-            headers=default_headers
-        )
-
-    @staticmethod
-    def error(
-            status: int = 400,
-            errors: Optional[Union[str, List[str]]] = None,
-            message: Optional[str] = None,
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """
-        Build error response
-
-        Args:
-            status: HTTP status code
-            errors: Error messages (string or list of strings)
-            message: Overall error message
-            error_details: Detailed error information
-            headers: Additional headers
-            request_id: Request ID for tracing
-        """
-        # Convert single error string to list
-        if isinstance(errors, str):
-            errors = [errors]
-
-        content = BaseResponse(
-            status=status,
-            data=None,
-            errors=errors,
-            message=message,
-            timestamp=ResponseBuilder._get_timestamp(),
-            request_id=request_id or ResponseBuilder._generate_request_id(),
-        )
-
-        default_headers = {
-            "Content-Type": "application/json",
-            "X-Request-ID": content.request_id
-        }
-        if headers:
-            default_headers.update(headers)
-
-        return JSONResponse(
-            status_code=status,
-            content=content.model_dump(exclude_none=True),
-            headers=default_headers
-        )
-
-    # Predefined error responses
-    @staticmethod
-    def bad_request(
-            errors: Union[str, List[str]] = "Bad request",
-            message: str = "The request was invalid",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """400 Bad Request"""
-        return ResponseBuilder.error(
-            status=ResponseBuilder.HTTP_400_BAD_REQUEST,
-            errors=errors,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def unauthorized(
-            errors: Union[str, List[str]] = "Unauthorized",
-            message: str = "Authentication required",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """401 Unauthorized"""
-        return ResponseBuilder.error(
-            status=ResponseBuilder.HTTP_401_UNAUTHORIZED,
-            errors=errors,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def forbidden(
-            errors: Union[str, List[str]] = "Forbidden",
-            message: str = "Access denied",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """403 Forbidden"""
-        return ResponseBuilder.error(
-            status=ResponseBuilder.HTTP_403_FORBIDDEN,
-            errors=errors,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def not_found(
-            errors: Union[str, List[str]] = "Resource not found",
-            message: str = "The requested resource was not found",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """404 Not Found"""
-        return ResponseBuilder.error(
-            status=ResponseBuilder.HTTP_404_NOT_FOUND,
-            errors=errors,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def conflict(
-            errors: Union[str, List[str]] = "Conflict",
-            message: str = "Resource conflict occurred",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """409 Conflict"""
-        return ResponseBuilder.error(
-            status=ResponseBuilder.HTTP_409_CONFLICT,
-            errors=errors,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def unprocessable_entity(
-            errors: Union[str, List[str]] = "Unprocessable entity",
-            message: str = "The request could not be processed",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """422 Unprocessable Entity"""
-        return ResponseBuilder.error(
-            status=ResponseBuilder.HTTP_422_UNPROCESSABLE_ENTITY,
-            errors=errors,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def internal_server_error(
-            errors: Union[str, List[str]] = "Internal server error",
-            message: str = "An internal server error occurred",
-            headers: Optional[Mapping[str, str]] = None,
-            request_id: Optional[str] = None) -> JSONResponse:
-        """500 Internal Server Error"""
-        return ResponseBuilder.error(
-            status=ResponseBuilder.HTTP_500_INTERNAL_SERVER_ERROR,
-            errors=errors,
-            message=message,
-            headers=headers,
-            request_id=request_id
-        )
-
-    @staticmethod
-    def validation_error(
-            field_errors: Dict[str, str],
-            message: str = "Validation failed") -> JSONResponse:
-        """422 Validation Error with field-specific details"""
-
-        return ResponseBuilder.unprocessable_entity(
-            errors="Validation error",
-            message=message,
-        )
-
-    # Single registry mapping status codes to builder methods.
-    # All dispatchers (global handler, from_http_exception) consult this table.
-    _STATUS_HANDLERS: dict[int, Callable[..., JSONResponse]] = {}
-
-    @classmethod
-    def _build_registry(cls):
-        if cls._STATUS_HANDLERS:
-            return
-        cls._STATUS_HANDLERS = {
-            400: cls.bad_request,
-            401: cls.unauthorized,
-            403: cls.forbidden,
-            404: cls.not_found,
-            409: cls.conflict,
-            422: cls.unprocessable_entity,
-        }
-
-    @classmethod
-    def from_http_exception(cls, ex: HTTPException) -> JSONResponse:
-        """Build response from HTTPException using the status-code registry."""
-        cls._build_registry()
-        handler = cls._STATUS_HANDLERS.get(
-            ex.status_code,
-            cls.internal_server_error,  # fallback
-        )
-        return handler(errors=ex.detail, headers=ex.headers)
-
-    @classmethod
-    def from_exception(cls, exc: Exception) -> JSONResponse:
-        """Build response from exception"""
-        return cls.internal_server_error(
-            errors=str(exc),
-            message="An error occurred"
-        )
-
-
-def get_response_builder() -> ResponseBuilder:
-    return ResponseBuilder()
-
-
-class CustomException(Exception):
-    def __init__(self, message: Optional[str] = None):
-        self.message = message
-
-
-class TunkinModel(BaseModel):
-    id: str
-    periode: str
-    nipam: str
-    nama: str
-    jabatan: str
-    organisasi: str
-    status_pegawai: str
-    tunkin: int
-    ter: int
+# ── Patch error methods onto ResponseBuilder ───────────────────
+# These are regular (non-classmethod) static-style functions that
+# use the errors module's own `_status_handlers` registry.
+# This preserves the ResponseBuilder.bad_request() API for existing
+# call-sites without needing a classmethod binding.
+ResponseBuilder.bad_request = bad_request              # type: ignore[attr-defined]
+ResponseBuilder.unauthorized = unauthorized             # type: ignore[attr-defined]
+ResponseBuilder.forbidden = forbidden                   # type: ignore[attr-defined]
+ResponseBuilder.not_found = not_found                   # type: ignore[attr-defined]
+ResponseBuilder.conflict = conflict                     # type: ignore[attr-defined]
+ResponseBuilder.unprocessable_entity = unprocessable_entity  # type: ignore[attr-defined]
+ResponseBuilder.internal_server_error = internal_server_error  # type: ignore[attr-defined]
+ResponseBuilder.validation_error = validation_error     # type: ignore[attr-defined]
+ResponseBuilder.from_http_exception = from_http_exception  # type: ignore[attr-defined]
+ResponseBuilder.from_exception = from_exception         # type: ignore[attr-defined]
