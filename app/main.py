@@ -19,8 +19,7 @@ app.add_middleware(
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     LOGGER.error(f"http exception: {exc.detail}")
-    res = ResponseBuilder()
-    return res.from_http_exception(exc)
+    return ResponseBuilder().from_http_exception(exc)
 
 @app.exception_handler(ExpiredSignatureError)
 async def expired_signature_exception_handler(request, exc: ExpiredSignatureError):

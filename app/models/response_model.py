@@ -369,29 +369,38 @@ class ResponseBuilder:
             message=message,
         )
 
+    # Single registry mapping status codes to builder methods.
+    # All dispatchers (global handler, from_http_exception) consult this table.
+    _STATUS_HANDLERS: dict[int, staticmethod] = {}
+
+    @classmethod
+    def _build_registry(cls):
+        if cls._STATUS_HANDLERS:
+            return
+        cls._STATUS_HANDLERS = {
+            400: cls.bad_request,
+            401: cls.unauthorized,
+            403: cls.forbidden,
+            404: cls.not_found,
+            409: cls.conflict,
+            422: cls.unprocessable_entity,
+        }
+
+    def from_http_exception(self, ex: HTTPException) -> JSONResponse:
+        """Build response from HTTPException using the status-code registry."""
+        self._build_registry()
+        handler = self._STATUS_HANDLERS.get(
+            ex.status_code,
+            ResponseBuilder.internal_server_error,  # fallback
+        )
+        return handler(errors=ex.detail, headers=ex.headers)
+
     def from_exception(self, exc: Exception) -> JSONResponse:
         """Build response from exception"""
         return ResponseBuilder.internal_server_error(
             errors=str(exc),
             message="An error occurred"
         )
-
-    def from_http_exception(self, ex: HTTPException) -> JSONResponse:
-        """Build response from HTTPException"""
-        if ex.status_code == 400:
-            return self.bad_request(errors=ex.detail, headers=ex.headers)
-        elif ex.status_code == 401:
-            return self.unauthorized(errors=ex.detail, headers=ex.headers)
-        elif ex.status_code == 403:
-            return self.forbidden(errors=ex.detail, headers=ex.headers)
-        elif ex.status_code == 404:
-            return self.not_found(errors=ex.detail, headers=ex.headers)
-        elif ex.status_code == 409:
-            return self.conflict(errors=ex.detail, headers=ex.headers)
-        elif ex.status_code == 422:
-            return self.unprocessable_entity(errors=ex.detail, headers=ex.headers)
-        else:
-            return self.internal_server_error(errors=ex.detail, headers=ex.headers)
 
 
 def get_response_builder() -> ResponseBuilder:
@@ -412,3 +421,4 @@ class TunkinModel(BaseModel):
     organisasi: str
     status_pegawai: str
     nominal: int
+    ter: int
