@@ -7,6 +7,7 @@ class KPIRecord(BaseModel):
     """A single KPI data row parsed from the uploaded Excel file."""
     periode: str = Field(..., min_length=6, max_length=6)
     nipam: str = Field(..., min_length=8, max_length=9)
+    nama: str
     tunkin: int
     pph21_ter: int
 

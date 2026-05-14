@@ -24,6 +24,7 @@ TEMPLATE_COLUMNS = [
     "NO",
     "PERIODE",
     "NIPAM",
+    "NAMA",
     "JUMLAH PENERIMAAN",
     "PPH21 TER"
 ]
@@ -85,7 +86,8 @@ class KPISheetParser:
         file_like = io.BytesIO(data)
 
         try:
-            df = pd.read_excel(file_like)
+            # Baca raw — tidak ada header, baris 0-4 adalah title/blank/header table
+            df = pd.read_excel(file_like, header=None)
         except Exception as exc:
             raise HTTPException(
                 status_code=500,
@@ -95,12 +97,29 @@ class KPISheetParser:
         if df.empty:
             raise HTTPException(status_code=400, detail="File Excel kosong")
 
-        for col in required:
-            if col not in df.columns:
+        # Row index 4 (0-based) = baris ke-5 → header table
+        header_raw = df.iloc[4].astype(str).str.strip().str.lower().tolist()
+        required_lower = [col.lower().strip() for col in required]
+
+        for col in required_lower:
+            if col not in header_raw:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Kolom '{col}' tidak ditemukan dalam file Excel.",
                 )
+
+        # Data dimulai dari row index 5 (baris ke-6) dan seterusnya
+        df = df.iloc[5:].copy()
+        df.columns = required  # pasang nama kolom sesuai TEMPLATE_COLUMNS
+
+        # Hanya ambil kolom yang diperlukan
+        df = df[required].copy()
+
+        # Hapus baris yang benar-benar kosong (semua NaN)
+        df = df.dropna(how="all").reset_index(drop=True)
+
+        if df.empty:
+            raise HTTPException(status_code=400, detail="File Excel kosong")
 
         df["PERIODE"] = df["PERIODE"].astype(str).str.zfill(6)
         df["NIPAM"] = df["NIPAM"].astype(str).str.zfill(9)
@@ -111,6 +130,7 @@ class KPISheetParser:
                 KPIRecord(
                     periode=str(row["PERIODE"]),
                     nipam=str(row["NIPAM"]),
+                    nama=str(row["NAMA"]),
                     tunkin=int(row["JUMLAH PENERIMAAN"]),
                     pph21_ter=int(row["PPH21 TER"])
                 )

@@ -1,5 +1,8 @@
+from pathlib import Path
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 
 from app.core.security import require_role
 from app.models.request_model import TunkinRequest, TunkinUploadRequest
@@ -7,6 +10,9 @@ from app.responses.builder import ResponseBuilder, get_response_builder
 from app.tunkin.repository import TunkinRepository, get_tunkin_repository
 from app.tunkin.commands import UploadKpiCommand, get_upload_kpi_command
 from app.responses.schemas import User
+
+TEMPLATE_DIR = Path(__file__).parent.parent.parent / "template"
+TEMPLATE_FILE = TEMPLATE_DIR / "Tunkin Template.xlsx"
 
 router = APIRouter(
     prefix="/tunkin",
@@ -44,3 +50,22 @@ async def upload_tunkin_file(
 ):
     result = await command.execute(request.periode, request.file)
     return response_builder.success(result.model_dump())
+
+
+@router.get("/template/download", summary="Download Template File")
+async def download_template_file(
+    user: Annotated[User, Depends(require_role(["payrollprocess"]))],
+):
+    """Download the Tunkin template Excel file."""
+    def iterfile():
+        with open(TEMPLATE_FILE, mode="rb") as file_like:
+            yield from file_like
+
+    return StreamingResponse(
+        iterfile(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="Tunkin Template.xlsx"',
+            "Cache-Control": "no-cache",
+        }
+    )
