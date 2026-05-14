@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Annotated, Optional
 
-from fastapi import UploadFile
+from fastapi import Depends, File, Form, UploadFile
 from pydantic import BaseModel
 
 
@@ -17,5 +17,11 @@ class TunkinRequest(PaginationQuery):
 
 class TunkinUploadRequest:
     """Request model for Tunkin file upload with periode + file."""
-    periode: str
-    file: UploadFile
+
+    def __init__(
+        self,
+        periode: Annotated[str, Form()],
+        file: UploadFile = File(...),
+    ):
+        self.periode = periode
+        self.file = file
