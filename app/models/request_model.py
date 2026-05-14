@@ -15,6 +15,7 @@ class TunkinRequest(PaginationQuery):
     orgId: Optional[str] = None
 
 
-class TunkinUploadRequest(BaseModel):
+class TunkinUploadRequest:
+    """Request model for Tunkin file upload with periode + file."""
     periode: str
     file: UploadFile

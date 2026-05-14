@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, UploadFile, Query, Depends
+from fastapi import APIRouter, UploadFile, Query, Depends, Form
 
 from app.core.security import require_role
 from app.models.request_model import TunkinRequest
@@ -27,10 +27,11 @@ def get_tunkin_data(
 
 @router.post("/upload", summary="Upload File Excel Tunkin")
 async def upload_tunkin_file(
+    periode: Annotated[str, Form()],
     file: UploadFile,
     user: Annotated[User, Depends(require_role(["payrollprocess"]))],
     response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
     command: Annotated[UploadKpiCommand, Depends(get_upload_kpi_command)],
 ):
-    result = await command.execute(file)
+    result = await command.execute(periode, file)
     return response_builder.success(result.model_dump())
