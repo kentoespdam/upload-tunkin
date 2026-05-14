@@ -34,6 +34,12 @@ class TunkinRepository:
         self._max_file_size = 50 * 1024 * 1024
         self.db_helper = db_helper
 
+    def count_by_periode(self, periode: str) -> int:
+        """Count tunkin records for a given periode."""
+        query = f"SELECT COUNT(*) AS total FROM {self.config.kpi_table_name} WHERE periode = %s"
+        result = self.db_helper.fetchone(query, (periode,))
+        return result["total"] if result else 0
+
     def fetch_page_data(self, periode: str, req: TunkinRequest):
         query = f"""
             SELECT
