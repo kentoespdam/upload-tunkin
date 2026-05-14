@@ -20,7 +20,8 @@ def _make_excel_bytes(
     headers: list[str] | None = None,
     case_insensitive: bool = False,
 ) -> bytes:
-    """Create in-memory Excel file with rows 1-4 dummy, header at row 5, data row 6+."""
+    """Create in-memory Excel file with rows 1-4 dummy, header at row 5, data row 6+.
+    Layout mirror template: col A-C dummy, D-I real data columns."""
     import openpyxl
     from openpyxl.utils import get_column_letter
 
@@ -33,17 +34,17 @@ def _make_excel_bytes(
     wb = openpyxl.Workbook()
     ws = wb.active
 
-    # Rows 1-4: dummy filler (title, blank, etc.)
+    # Rows 1-4: dummy filler (title, blank, etc.) → col A-C
     for r in range(1, 5):
         ws[f"A{r}"] = f"dummy row {r}"
 
-    # Row 5 (index 4 0-based): header
-    for col_idx, h in enumerate(headers, 1):
+    # Row 5 (index 4 0-based): header → col D-I (index 3-8 0-based)
+    for col_idx, h in enumerate(headers, 4):  # start at col D=4
         ws[f"{get_column_letter(col_idx)}5"] = h
 
-    # Row 6+: data
+    # Row 6+: data → col D-I (index 3-8 0-based)
     for row_idx, row in enumerate(rows, 6):
-        for col_idx, h in enumerate(headers, 1):
+        for col_idx, h in enumerate(headers, 4):  # start at col D=4
             val = row.get(h) if not case_insensitive else row.get(h, row.get(h.upper()))
             ws[f"{get_column_letter(col_idx)}{row_idx}"] = val
 

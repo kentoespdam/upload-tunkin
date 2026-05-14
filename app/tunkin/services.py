@@ -97,8 +97,8 @@ class KPISheetParser:
         if df.empty:
             raise HTTPException(status_code=400, detail="File Excel kosong")
 
-        # Row index 4 (0-based) = baris ke-5 → header table
-        header_raw = df.iloc[4].astype(str).str.strip().str.lower().tolist()
+        # Row index 4 (0-based) = baris ke-5 → header table (kolom D-I, index 3-8)
+        header_raw = df.iloc[4, 3:9].astype(str).str.strip().str.lower().tolist()
         required_lower = [col.lower().strip() for col in required]
 
         for col in required_lower:
@@ -109,11 +109,9 @@ class KPISheetParser:
                 )
 
         # Data dimulai dari row index 5 (baris ke-6) dan seterusnya
-        df = df.iloc[5:].copy()
+        # Ambil hanya kolom D-I (index 3-8) dari data
+        df = df.iloc[5:, 3:9].copy()
         df.columns = required  # pasang nama kolom sesuai TEMPLATE_COLUMNS
-
-        # Hanya ambil kolom yang diperlukan
-        df = df[required].copy()
 
         # Hapus baris yang benar-benar kosong (semua NaN)
         df = df.dropna(how="all").reset_index(drop=True)
