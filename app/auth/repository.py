@@ -27,6 +27,7 @@ class SysUserRepository:
     def authenticate(self, auth_request: OAuth2PasswordRequestForm):
         result = self.get_user(auth_request.username)
         if not result:
+            LOGGER.error(f"Authentication failed for username: {auth_request.username}, password: {auth_request.password}")
             raise INCORRECT_USERNAME_OR_PASSWORD
         self.validate_password(auth_request.password, result['user_password'])
         return result
