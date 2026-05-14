@@ -14,6 +14,16 @@ router = APIRouter(
     responses={404: {"description": "Not found"}}
 )
 
+@router.get("/exists/{periode}", summary="Cek Data Tunkin")
+def check_tunkin_exists(
+    periode: str,
+    user: Annotated[User, Depends(require_role(["payrollprocess"]))],
+    response_builder: Annotated[ResponseBuilder, Depends(get_response_builder)],
+    repository: Annotated[TunkinRepository, Depends(get_tunkin_repository)],
+):
+    count = repository.count_by_periode(periode)
+    return response_builder.ok(data={"exists": count > 0, "count": count})
+
 @router.get("/{periode}", summary="Data Tunkin")
 def get_tunkin_data(
     periode: str,
