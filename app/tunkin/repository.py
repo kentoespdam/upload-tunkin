@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import UploadFile
 
-from app.core.config import Config
+from app.core.config import Config, LOGGER
 from app.core.databases import DatabaseHelper
 from app.models.kpi import KPIRecord
 from app.tunkin.schemas import UpsertResult
@@ -88,7 +88,7 @@ class KPIRepository:
         query = f"""
             INSERT INTO {self._config.kpi_table_name} (periode, nipam, tunkin, pph21_ter)
             VALUES (%s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE tunkin = VALUES(tunkin)
+            ON DUPLICATE KEY UPDATE tunkin = VALUES(tunkin), pph21_ter = VALUES(pph21_ter)
         """
         params = [(r.periode, r.nipam, r.tunkin, r.pph21_ter) for r in records]
         affected = self._db_helper.save_update(query, params)

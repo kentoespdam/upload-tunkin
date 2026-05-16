@@ -14,7 +14,7 @@ setup_logging()
 
 LOGGER = logging.getLogger(os.getenv('APP_NAME', "app"))
 fastapi_logger = logging.getLogger("watchfiles")
-fastapi_logger.setLevel(logging.ERROR)
+fastapi_logger.setLevel(os.getenv('FASTAPI_LOG_LEVEL', 'ERROR'))
 
 
 class Config:
