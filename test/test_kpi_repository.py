@@ -26,8 +26,8 @@ def test_upsert_batch_correct_query():
     repo = KPIRepository(config, db)
 
     records = [
-        KPIRecord(periode="002501", nipam="12345678", tunkin=500000, pph21_ter=25000),
-        KPIRecord(periode="002501", nipam="87654321", tunkin=750000, pph21_ter=37500),
+        KPIRecord(periode="002501", nipam="12345678", nama="Alice", tunkin=500000, pph21_ter=25000),
+        KPIRecord(periode="002501", nipam="87654321", nama="Bob", tunkin=750000, pph21_ter=37500),
     ]
     result = repo.upsert_batch(records)
 
@@ -57,7 +57,7 @@ def test_upsert_batch_uses_table_name():
     config.kpi_table_name = "some_other_table"
     repo = KPIRepository(config, db)
 
-    repo.upsert_batch([KPIRecord(periode="000001", nipam="00000001", tunkin=100, pph21_ter=5)])
+    repo.upsert_batch([KPIRecord(periode="000001", nipam="00000001", nama="Test", tunkin=100, pph21_ter=5)])
     query, _ = db.called_with
     assert "some_other_table" in query
 

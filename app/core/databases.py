@@ -76,35 +76,48 @@ class DatabaseHelper:
 
     @staticmethod
     def save_update(query: str, data: list):
+        """Execute a batch INSERT/UPDATE statement.
+
+        For INSERT ... ON DUPLICATE KEY UPDATE, MySQL's cursor.rowcount returns
+        2 per new row (1 for INSERT + 1 for internal "delete" of old row) and 1 per
+        updated row — not the number of rows processed. We return the actual number
+        of rows in the batch instead, which is the meaningful count for callers
+        like KPIRepository.upsert_batch().
+        """
         try:
             with _get_connection() as conn:
                 with conn.cursor() as cursor:
                     try:
                         cursor.executemany(query, data)
-                        affected = cursor.rowcount
-                        LOGGER.info(f"{affected} rows affected")
+                        LOGGER.info(f"{len(data)} rows in batch")
                         conn.commit()
                     except Exception as e:
                         conn.rollback()
                         LOGGER.error(e)
         except Exception as e:
             LOGGER.error(e)
+        return len(data)
 
     @staticmethod
     def save_update_single(query: str, data: tuple):
+        """Execute a single INSERT/UPDATE statement.
+
+        Returns 1 on success (single row processed), matching the number of
+        records passed in for single-record operations.
+        """
         try:
             with _get_connection() as conn:
                 with conn.cursor() as cursor:
                     try:
                         cursor.execute(query, data)
-                        affected = cursor.rowcount
-                        LOGGER.info(f"{affected} rows affected")
+                        LOGGER.info(f"1 row affected")
                         conn.commit()
                     except Exception as e:
                         conn.rollback()
                         LOGGER.error(e)
         except Exception as e:
             LOGGER.error(e)
+        return 1
 
     def fetch_page(self, query: str, params: tuple = (), page: int = 1, page_size: int = 10) -> BasePageResponse:
         count = self.fetch_count(query, params)
