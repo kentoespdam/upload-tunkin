@@ -16,6 +16,7 @@ class OrganizationRepository:
         query = """
             SELECT org_id, org_name
             FROM organization
+                WHERE org_status = 'Enabled'
             ORDER BY org_level
         """
         rows = self.db.fetch_tuple_data(query)

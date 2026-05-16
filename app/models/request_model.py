@@ -10,8 +10,7 @@ class PaginationQuery(BaseModel):
 
 
 class TunkinRequest(PaginationQuery):
-    nipam: Optional[str] = None
-    nama: Optional[str] = None
+    search: Optional[str] = None
     orgId: Optional[str] = None
 
 
@@ -19,9 +18,9 @@ class TunkinUploadRequest:
     """Request model for Tunkin file upload with periode + file."""
 
     def __init__(
-        self,
-        periode: Annotated[str, Form()],
-        file: UploadFile = File(...),
+            self,
+            periode: Annotated[str, Form()],
+            file: UploadFile = File(...),
     ):
         self.periode = periode
         self.file = file
