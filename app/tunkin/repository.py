@@ -64,9 +64,12 @@ class TunkinRepository:
             WHERE kpi.periode = %s
         """
         params = (periode,)
-        if req.nipam:
-            query += " AND nipam = %s"
-            params += (req.nipam,)
+        if req.orgId:
+            query += f" AND kpi.nipam = %s "
+            params += (req.orgId,)
+        if req.search:
+            query += " AND (nipam = %s OR emp_name LIKE %s) "
+            params += (f"%{req.search}%", f"%{req.search}%")
 
         query += " ORDER BY org.org_level, po.pos_level"
         return self.db_helper.fetch_page(query, params, req.page, req.size)
