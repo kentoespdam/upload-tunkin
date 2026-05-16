@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import UploadFile
 
-from app.core.config import Config, LOGGER
+from app.core.config import Config, LOGGER, SqidsHelper
 from app.core.databases import DatabaseHelper
 from app.models.kpi import KPIRecord
 from app.tunkin.schemas import UpsertResult
@@ -65,10 +65,11 @@ class TunkinRepository:
         """
         params = (periode,)
         if req.orgId:
-            query += f" AND kpi.nipam = %s "
-            params += (req.orgId,)
+            sqids_helper = SqidsHelper()
+            query += f" AND org.org_id = %s "
+            params += (sqids_helper.decode(req.orgId),)
         if req.search:
-            query += " AND (nipam = %s OR emp_name LIKE %s) "
+            query += " AND (nipam LIKE %s OR emp_name LIKE %s) "
             params += (f"%{req.search}%", f"%{req.search}%")
 
         query += " ORDER BY org.org_level, po.pos_level"
