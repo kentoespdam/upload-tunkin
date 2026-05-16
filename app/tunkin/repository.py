@@ -10,6 +10,8 @@ from fastapi import UploadFile
 
 from app.core.config import Config
 from app.core.databases import DatabaseHelper
+from app.models.kpi import KPIRecord
+from app.tunkin.schemas import UpsertResult
 from app.models.request_model import TunkinRequest
 
 TEMPLATE_COLUMN = [
@@ -80,7 +82,6 @@ class KPIRepository:
         self._db_helper = db_helper
 
     def upsert_batch(self, records: list["KPIRecord"]) -> "UpsertResult":
-        from app.tunkin.schemas import KPIRecord, UpsertResult
         if not records:
             return UpsertResult(affected_rows=0)
 
